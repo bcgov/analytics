@@ -1,0 +1,35 @@
+{
+  "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
+  "source": "client",
+  "destination": "processed",
+  "directory": "google_gdx",
+  "doc": "googlesearch.*.csv",
+  "dbtable": "google.googlesearch",
+  "column_count": 9,
+  "columns": [
+   "date",
+   "query",
+   "country",
+   "device",
+   "page",
+   "position",
+   "clicks",
+   "ctr",
+   "impressions"
+  ],
+  "dtype_dic_strings": ["clicks","impressions"],
+  "delim": "|",
+  "replace": [
+    {
+      "field": "clicks",
+      "old": "0.0",
+      "new": "0"
+    },
+    {
+      "field": "impressions",
+      "old": "0.0",
+      "new": "0"
+    }
+  ],
+  "truncate": true
+}

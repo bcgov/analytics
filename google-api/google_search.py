@@ -17,8 +17,10 @@
 #               : below.
 #               :
 #               : ------------------
-#               : To set up the Google end of things, follow
+#               : To set up the Google end of things, following this: 
 #               :    https://developers.google.com/api-client-library/python/start/get_started
+#               : the instructions are: 
+#               :
 #               :
 #               : Set up a Google account linked to an IDIR service account
 #               : Create a new project at https://console.developers.google.com/projectcreate

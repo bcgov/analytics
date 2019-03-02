@@ -5,8 +5,9 @@
   "directory": "google_gdx",
   "doc": "googlesearch.*.csv",
   "dbtable": "google.googlesearch",
-  "column_count": 9,
+  "column_count": 10,
   "columns": [
+   "site",
    "date",
    "query",
    "country",

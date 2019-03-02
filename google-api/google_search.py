@@ -37,8 +37,8 @@
 #               :    
 #               :    Download the JSON file and place it in your directory as "credentials.json"
 #               :    as describe by the variable below
-#		:    
-#		:    When you first run it, it will ask you do do an OAUTH validation, which 
+#								:    
+#								:    When you first run it, it will ask you do do an OAUTH validation, which 
 #               :    will create a file credentials.dat, saving that auhtorization. 
 
 
@@ -55,91 +55,167 @@ from oauth2client.file import Storage
 from oauth2client import tools
 from apiclient.discovery import build
 
+import psycopg2 # For Amazon Redshift IO
+import boto3    # For Amazon S3 IO
+
 import sys # to read command line parameters
 import os.path #file handling
-from datetime import datetime
-import io
+import io # file and stream handling
 
-outfile = "googlesearch-" + str(datetime.now().date()) + ".csv"
+# set up debugging
+debug = True
+def log(s):
+    if debug:
+        print s
 
-f = io.open(outfile, 'w', encoding='utf8')
-start_dt = date(2018,11,1)
-end_dt = date(2019,2,22)
+# TODO: Replace file name hardcoding with env parameter
+# Read configuration file
+with open(os.environ['GOOGLE_MICROSERVICE_CONFIG']) as f:
+  config = json.load(f)
 
+sites = config['sites']
+bucket = config['bucket']
+dbtable = config['dbtable']
 
+start_date_default = map(int, config['start_date_default'].split('-'))
+start_date_default = date(start_date_default[0],start_date_default[1],start_date_default[2])
 
-API_NAME = 'searchconsole'
-API_VERSION = 'v1'
-DISCOVERY_URI = 'https://www.googleapis.com/discovery/v1/apis/webmasters/v3/rest'
+# set up the S3 resource
+client = boto3.client('s3')
+resource = boto3.resource('s3')
 
-parser = argparse.ArgumentParser(parents=[tools.argparser])
-flags = parser.parse_args()
-flags.noauth_local_webserver = True
-credentials_file = 'credentials.json'
+# set up the Redshift connection
+conn_string = "dbname='snowplow' host='snowplow-ca-bc-gov-main-redshi-resredshiftcluster-13nmjtt8tcok7.c8s7belbz4fo.ca-central-1.redshift.amazonaws.com' port='5439' user='microservice' password=" + os.environ['pgpass']
 
-flow_scope='https://www.googleapis.com/auth/webmasters.readonly'
-flow = flow_from_clientsecrets(credentials_file, scope= flow_scope, redirect_uri='urn:ietf:wg:oauth:2.0:oob')
+for site in sites:
+	# TODO: REPLACE WITH STREAM
+	#f = io.open(outfile, 'w', encoding='utf8')
+	stream = io.StringIO()
 
-flow.params['access_type'] = 'offline'
-flow.params['approval_prompt'] = 'force'
+	# query the latest date for any search data on this site loaded to redshift
+	con = psycopg2.connect(conn_string)
+	cursor=con.cursor()
+	query = "SELECT MAX(DATE) FROM google.googlesearch WHERE site = '{0}'".format(site)
+	cursor.execute(query)
 
-storage = Storage('credentials.dat')
-credentials = storage.get()
+	last_loaded_date = (cursor.fetchall())[0][0]
+	# The case where no data has yet been loaded for this site, start_dt will be the config set start date
+	if last_loaded_date is None:
+		start_dt = start_date_default
+	else:
+		# offset start_dt one day forward only if data already exists in redshift
+		start_dt = last_loaded_date + timedelta(days=1)
+	cursor.close()
+	con.commit()
+	con.close()
 
-if credentials is not None and credentials.access_token_expired:
-  try:
-    credentials.refresh(h)
-  except:
-    pass
+	# end_dt will be two days before the current date
+	end_dt = (datetime.today() - timedelta(days=2)).date()
 
-if credentials is None or credentials.invalid:
-  credentials = tools.run_flow(flow, storage, flags)
+	# TODO if the end_dt is less than the start_dt, there's no more recent data to get; so go to next site
+	if (end_dt - start_dt).days < 0:
+		continue
 
-http = credentials.authorize(httplib2.Http())
+	# set the file name that will be written to S3
+	site_clean = re.sub(r'^https?:\/\/','', re.sub(r'\/$','',site))
+	outfile = "googlesearch-" + site_clean + "-" + str(start_dt) + "-" + str(end_dt) + ".csv"
+	object_key='client/google_gdx/{0}'.format(outfile)
 
-service = build(API_NAME, API_VERSION, http=http, discoveryServiceUrl=DISCOVERY_URI)
-#site_list_response = service.sites().list().execute()
-#pprint(site_list_response)
+	# calling the Google API
+	API_NAME = 'searchconsole'
+	API_VERSION = 'v1'
+	DISCOVERY_URI = 'https://www.googleapis.com/discovery/v1/apis/webmasters/v3/rest'
 
-outrow = u"date|query|country|device|page|position|clicks|ctr|impressions\n"
-f.write(outrow)
+	parser = argparse.ArgumentParser(parents=[tools.argparser])
+	flags = parser.parse_args()
+	flags.noauth_local_webserver = True
+	credentials_file = 'credentials.json'
 
-# Limit each query to 20000 rows. If there are more than 20000 rows in a given day, it will split the query up.
-rowlimit = 20000
-index = 0
+	flow_scope='https://www.googleapis.com/auth/webmasters.readonly'
+	flow = flow_from_clientsecrets(credentials_file, scope= flow_scope, redirect_uri='urn:ietf:wg:oauth:2.0:oob')
 
-def daterange(date1, date2):
-    for n in range(int ((date2 - date1).days)+1):
-        yield date1 + timedelta(n)
+	flow.params['access_type'] = 'offline'
+	flow.params['approval_prompt'] = 'force'
 
+	storage = Storage('credentials.dat')
+	credentials = storage.get()
 
-for date in daterange(start_dt, end_dt):
+	if credentials is not None and credentials.access_token_expired:
+		try:
+			credentials.refresh(h)
+		except:
+			pass
+
+	if credentials is None or credentials.invalid:
+		credentials = tools.run_flow(flow, storage, flags)
+
+	http = credentials.authorize(httplib2.Http())
+
+	service = build(API_NAME, API_VERSION, http=http, discoveryServiceUrl=DISCOVERY_URI)
+	#site_list_response = service.sites().list().execute()
+	#pprint(site_list_response)
+
+	# site is prepended to the response from the Google Search API
+	outrow = u"site|date|query|country|device|page|position|clicks|ctr|impressions\n"
+	stream.write(outrow)
+
+	# Limit each query to 20000 rows. If there are more than 20000 rows in a given day, it will split the query up.
+	rowlimit = 20000
 	index = 0
-	while (index == 0 or ('rows' in search_analytics_response)):
-		print str(date)  + " " + str(index)
-		bodyvar = {
-			"aggregationType" : 'auto',
-			"startDate": str(date),
-			"endDate": str(date),
-			"dimensions": [
-				"date",
-				"query",
-				"country",
-				"device",
-				"page"
-				],
-			"rowLimit" : rowlimit,
-       			"startRow" : index * rowlimit 
-			}
-		search_analytics_response = service.searchanalytics().query(siteUrl='https://www2.gov.bc.ca/', body=bodyvar).execute()
-	#	pprint(search_analytics_response)
-		index = index + 1
-		if ('rows' in search_analytics_response):
-			for row in search_analytics_response['rows']:
-				outrow = ""
-				for key in row['keys']:
-					key = re.sub('\|', '', key) # for now, we strip | from searches
-					key = re.sub('\\\\', '', key) # for now, we strip | from searches
-					outrow = outrow + key + "|"
-				outrow = outrow + str(row['position']) + "|" + re.sub('\.0','',str(row['clicks'])) + "|" + str(row['ctr']) + "|" + re.sub('\.0','',str(row['impressions'])) + "\n"
-				f.write(outrow)
+
+	def daterange(date1, date2):
+			for n in range(int ((date2 - date1).days)+1):
+					yield date1 + timedelta(n)
+
+
+	for date in daterange(start_dt, end_dt):
+		index = 0
+		while (index == 0 or ('rows' in search_analytics_response)):
+			print str(date)  + " " + str(index)
+			bodyvar = {
+				"aggregationType" : 'auto',
+				"startDate": str(date),
+				"endDate": str(date),
+				"dimensions": [
+					"date",
+					"query",
+					"country",
+					"device",
+					"page"
+					],
+				"rowLimit" : rowlimit,
+							"startRow" : index * rowlimit 
+				}
+			search_analytics_response = service.searchanalytics().query(siteUrl=site, body=bodyvar).execute()
+		  # pprint(search_analytics_response)
+			index = index + 1
+			if ('rows' in search_analytics_response):
+				for row in search_analytics_response['rows']:
+					outrow = site + "|"
+					for key in row['keys']:
+						key = re.sub('\|', '', key) # for now, we strip | from searches
+						key = re.sub('\\\\', '', key) # for now, we strip | from searches
+						outrow = outrow + key + "|"
+					outrow = outrow + str(row['position']) + "|" + re.sub('\.0','',str(row['clicks'])) + "|" + str(row['ctr']) + "|" + re.sub('\.0','',str(row['impressions'])) + "\n"
+					stream.write(outrow)
+
+	# write the stream to an outfile in the S3 bucket
+	resource.Bucket(bucket).put_object(Key=object_key, Body=stream.getvalue())
+	log('PUT_OBJECT: {0}:{1}'.format(outfile, bucket))
+	object_summary = resource.ObjectSummary(bucket,object_key)
+	log('OBJECT LOADED ON: {0} \nOBJECT SIZE: {1}'.format(object_summary.last_modified, object_summary.size))
+
+	#TODO insert into redshift
+	query = "copy " + dbtable +" FROM 's3://" + bucket + "/" + object_key + "' CREDENTIALS 'aws_access_key_id=" + os.environ['AWS_ACCESS_KEY_ID'] + ";aws_secret_access_key=" + os.environ['AWS_SECRET_ACCESS_KEY'] + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"
+	logquery = "copy " + dbtable +" FROM 's3://" + bucket + "/" + object_key + "' CREDENTIALS 'aws_access_key_id=" + 'AWS_ACCESS_KEY_ID' + ";aws_secret_access_key=" + 'AWS_SECRET_ACCESS_KEY' + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"
+	log(logquery)
+
+	with psycopg2.connect(conn_string) as conn:
+		with conn.cursor() as curs:
+			try:
+					curs.execute(query)
+			except psycopg2.Error as e: # if the DB call fails, print error and place file in /bad
+					log("Loading failed\n\n")
+					log(e.pgerror)
+			else:
+					log("Loaded successfully\n\n")

@@ -30,10 +30,12 @@
 #               :
 #               : Click "Create Credentials" selecting:
 #               :    Click on the small text to select that you want to create a "client id"
-#               :    You will have to configure a consent screen. (document how you do this)
+#               :    You will have to configure a consent screen.
+#		:    You must provide an Application name, and under "Scopes for Google APIs"
+#		:    add the scopes: "../auth/webmasters" and "../auth/webmasters.readonly".
 #               :    
-#               :    After you submit, you will have to pick an application type. Choose Other
-#               :    and choose something.
+#               :    After you save, you will have to pick an application type. Choose Other
+#               :    and provide a name for this OAuth client ID.
 #               :    
 #               :    Download the JSON file and place it in your directory as "credentials.json"
 #               :    as describe by the variable below

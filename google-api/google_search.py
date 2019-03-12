@@ -46,6 +46,8 @@ import string
 import re
 from pprint import pprint
 from datetime import date, timedelta, datetime
+from time import sleep
+import random
 import httplib2
 import json
 import argparse
@@ -68,8 +70,7 @@ def log(s):
     if debug:
         print s
 
-# TODO: Replace file name hardcoding with env parameter
-# Read configuration file
+# Read configuration file from env parameter
 with open(os.environ['GOOGLE_MICROSERVICE_CONFIG']) as f:
   config = json.load(f)
 
@@ -88,8 +89,6 @@ resource = boto3.resource('s3')
 conn_string = "dbname='snowplow' host='snowplow-ca-bc-gov-main-redshi-resredshiftcluster-13nmjtt8tcok7.c8s7belbz4fo.ca-central-1.redshift.amazonaws.com' port='5439' user='microservice' password=" + os.environ['pgpass']
 
 for site in sites:
-	# TODO: REPLACE WITH STREAM
-	#f = io.open(outfile, 'w', encoding='utf8')
 	stream = io.StringIO()
 
 	# query the latest date for any search data on this site loaded to redshift
@@ -109,10 +108,13 @@ for site in sites:
 	con.commit()
 	con.close()
 
-	# end_dt will be two days before the current date
+	# The latency of Google search results is two days, so
+	# end_dt will be the greater of the start_date or two days before today's date
 	end_dt = (datetime.today() - timedelta(days=2)).date()
+	if end_dt < start_dt:
+		end_dt = start_dt
 
-	# TODO if the end_dt is less than the start_dt, there's no more recent data to get; so go to next site
+	# if the end_dt is less than the start_dt, there's no more recent data to get; so go to next site
 	if (end_dt - start_dt).days < 0:
 		continue
 
@@ -169,6 +171,9 @@ for site in sites:
 
 
 	for date in daterange(start_dt, end_dt):
+		# sleeping randomly up to 1 second per request to avoid rate limit exceded error 429
+		sleep(random.random())
+		
 		index = 0
 		while (index == 0 or ('rows' in search_analytics_response)):
 			print str(date)  + " " + str(index)
@@ -187,7 +192,7 @@ for site in sites:
 							"startRow" : index * rowlimit 
 				}
 			search_analytics_response = service.searchanalytics().query(siteUrl=site, body=bodyvar).execute()
-		  # pprint(search_analytics_response)
+			# pprint(search_analytics_response)
 			index = index + 1
 			if ('rows' in search_analytics_response):
 				for row in search_analytics_response['rows']:
@@ -205,7 +210,7 @@ for site in sites:
 	object_summary = resource.ObjectSummary(bucket,object_key)
 	log('OBJECT LOADED ON: {0} \nOBJECT SIZE: {1}'.format(object_summary.last_modified, object_summary.size))
 
-	#TODO insert into redshift
+	# insert into redshift
 	query = "copy " + dbtable +" FROM 's3://" + bucket + "/" + object_key + "' CREDENTIALS 'aws_access_key_id=" + os.environ['AWS_ACCESS_KEY_ID'] + ";aws_secret_access_key=" + os.environ['AWS_SECRET_ACCESS_KEY'] + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"
 	logquery = "copy " + dbtable +" FROM 's3://" + bucket + "/" + object_key + "' CREDENTIALS 'aws_access_key_id=" + 'AWS_ACCESS_KEY_ID' + ";aws_secret_access_key=" + 'AWS_SECRET_ACCESS_KEY' + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"
 	log(logquery)

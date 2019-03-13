@@ -4,9 +4,7 @@ The `google_search.py` script automates the loading of Google Search API data in
 
 The accompanying `google_search.json` configuration file specifies the bucket, schema, the sites to query the Google Search API for, and optional start dates on those sites.
 
-The microservice runs at 07:00:00 UTC daily (which is midnight in the pacific timezone), and will attempt to load query data up to the latest available information from the Google Search API (which is two days ago before the current date).
-
-It will begin loading from the `"start_date_default"` specified in microservice; or 16 months ago; or from the day after the last date that has already been loaded into Redshift. It currently runs until two days ago (the latest available data from the Google Search API).
+The microservice will begin loading from the `"start_date_default"` specified in microservice; or 16 months ago; or from the day after the last date that has already been loaded into Redshift. It currently runs for a maximum of 30 days at a time until 2 days ago (the latest available data from the Google Search API).
 
 ## Configuration
 

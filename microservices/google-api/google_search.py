@@ -46,7 +46,7 @@
 #               :    as describe by the variable below
 #               :    
 #               :    When you first run it, it will ask you do do an OAUTH validation, which 
-#               :    will create a file credentials.dat, saving that auhtorization. 
+#               :    will create a file "credentials.dat", saving that auhtorization. 
 
 
 import string
@@ -111,7 +111,6 @@ resource = boto3.resource('s3')
 conn_string = "dbname='snowplow' host='snowplow-ca-bc-gov-main-redshi-resredshiftcluster-13nmjtt8tcok7.c8s7belbz4fo.ca-central-1.redshift.amazonaws.com' port='5439' user='microservice' password=" + os.environ['pgpass']
 
 for site_item in sites:
-	
 	# read the config item for the site name and default start date if specified
 	site_name = site_item["name"]
 

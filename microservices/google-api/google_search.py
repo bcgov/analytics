@@ -196,8 +196,8 @@ for site_item in sites:
         index = 0
 
         def daterange(date1, date2):
-                for n in range(int ((date2 - date1).days)+1):
-                        yield date1 + timedelta(n)
+            for n in range(int ((date2 - date1).days)+1):
+                yield date1 + timedelta(n)
 
 
         for date in daterange(start_dt, end_dt):
@@ -269,9 +269,9 @@ for site_item in sites:
         with psycopg2.connect(conn_string) as conn:
             with conn.cursor() as curs:
                 try:
-                        curs.execute(query)
+                    curs.execute(query)
                 except psycopg2.Error as e: # if the DB call fails, print error and place file in /bad
-                        log("Loading failed\n\n")
-                        log(e.pgerror)
+                    log("Loading failed\n\n")
+                    log(e.pgerror)
                 else:
-                        log("Loaded successfully\n\n")
+                    log("Loaded successfully\n\n")

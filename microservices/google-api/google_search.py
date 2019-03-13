@@ -5,13 +5,13 @@
 #Description    : A script to access the Google Search Console
 #               : api, download analytcs info and dump to a CSV in S3
 #               : The resulting file is loaded to Redshift and then
-# 							: available to Looker through the project google_api.
-#								: Calls span 30 days or less, and calls begin from
-#								: the day after the latest data loaded into Redshift,
-#								: or 16 months ago, or on the date specified in the
-#								: file referenced by the GOOGLE_MICROSERVICE_CONFIG
-#								: environment variable. The config JSONschema is
-#								: defined in the google-api README.md file.
+#               : available to Looker through the project google_api.
+#               : Calls span 30 days or less, and calls begin from
+#               : the day after the latest data loaded into Redshift,
+#               : or 16 months ago, or on the date specified in the
+#               : file referenced by the GOOGLE_MICROSERVICE_CONFIG
+#               : environment variable. The config JSONschema is
+#               : defined in the google-api README.md file.
 #
 #Requirements   : Install python libraries: httplib2, oauth2client
 #               : google-api-python-client
@@ -44,8 +44,8 @@
 #               :    
 #               :    Download the JSON file and place it in your directory as "credentials.json"
 #               :    as describe by the variable below
-#								:    
-#								:    When you first run it, it will ask you do do an OAUTH validation, which 
+#               :    
+#               :    When you first run it, it will ask you do do an OAUTH validation, which 
 #               :    will create a file credentials.dat, saving that auhtorization. 
 
 

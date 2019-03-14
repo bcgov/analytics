@@ -131,17 +131,21 @@ for site_item in sites:
         start_date_default = map(int, start_date_default.split('-'))
         start_date_default = date(start_date_default[0],start_date_default[1],start_date_default[2])
 
-    # Load 30 days at a time until the data in Redshift has caught up to the most recently available data from Google
-    while (last_loaded_date is not latest_date):
-
-        last_loaded_date = last_loaded(site_name)
+    # Load 30 days at a time until the data in Redshift has
+    # caught up to the most recently available data from Google
+    while last_loaded_date is None or last_loaded_date < latest_date:
 
         # if there isn't data in Redshift for this site, start at the start_date_default set earlier
         if last_loaded_date is None:
             start_dt = start_date_default
+        # offset start_dt one day ahead of last Redshift-loaded data
         else:
-            start_dt = last_loaded_date + timedelta(days=1) # offset start_dt one day ahead of last Redshift-loaded data
+            start_dt = last_loaded_date + timedelta(days=1)
         
+        # if the start_dt is the latest date; there is no new data; go to next site
+        if start_dt == latest_date:
+            break
+
         # end_dt will be up to 1 month ahead of start_dt, or up to two days before now, whichever is less.
         end_dt = min(start_dt + timedelta(days=30), latest_date)
 
@@ -275,3 +279,7 @@ for site_item in sites:
                     log(e.pgerror)
                 else:
                     log("Loaded successfully\n\n")
+        
+        #refresh last_loaded with the most recent load date
+        last_loaded_date = last_loaded(site_name)
+        

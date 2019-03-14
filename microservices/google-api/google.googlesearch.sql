@@ -7,9 +7,9 @@ CREATE TABLE IF NOT EXISTS google.googlesearch (
 	device  VARCHAR(255)    ENCODE ZSTD,
 	page    VARCHAR(2047)    ENCODE ZSTD,
 	position FLOAT,
-	clicks   DECIMAL,
+	clicks   INTEGER,
 	ctr      FLOAT,
-	impressions DECIMAL
+	impressions INTEGER
 );
 ALTER TABLE google.googlesearch OWNER TO microservice;
 GRANT SELECT ON TABLE google.googlesearch TO LOOKER; 

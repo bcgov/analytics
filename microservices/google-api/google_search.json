@@ -1,0 +1,9 @@
+{
+    "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
+    "dbtable": "google.googlesearch",
+    "sites":[
+        { 
+        "name":"https://www2.gov.bc.ca/"
+        }
+    ]
+}

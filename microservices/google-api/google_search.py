@@ -70,6 +70,9 @@ import sys # to read command line parameters
 import os.path #file handling
 import io # file and stream handling
 
+# Set time zone
+#os.environ['TZ'] = 'Americas/Vancouver'
+
 # set up debugging
 debug = True
 def log(s):
@@ -279,7 +282,9 @@ for site_item in sites:
                     log(e.pgerror)
                 else:
                     log("Loaded successfully\n\n")
-        
-        #refresh last_loaded with the most recent load date
-        last_loaded_date = last_loaded(site_name)
-        
+        # if we didn't add any new rows, set last_loaded_date to latest_date to break the loop, otherwise, set it to the last loaded date
+        if last_loaded_date == last_loaded(site_name):
+            last_loaded_date = latest_date
+        else:
+            #refresh last_loaded with the most recent load date
+            last_loaded_date = last_loaded(site_name)

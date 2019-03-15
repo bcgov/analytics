@@ -1,6 +1,6 @@
 ## S3 Encryption Checker
 
-The [s3_encryption_checker.py](s3_encryption_checker.py) python script is searches through an S3 bucket to detect any objects that are not encrypted. It is a good, relatively simple, example of how to programmatically access S3 using [Boto](http://boto.cloudhackers.com/en/latest/)
+The [s3_encryption_checker.py](s3_encryption_checker.py) python script searches through an S3 bucket to detect any objects that are not encrypted. It is a good, relatively simple, example of how to programmatically access S3 using [Boto](http://boto.cloudhackers.com/en/latest/).
 
 ## Project Status
 

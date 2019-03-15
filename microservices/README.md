@@ -10,11 +10,11 @@ The `cmslitemetadata_to_redshift` diverged from `s3_to_redshift` to process data
 
 ## Getting Help
 
-Please Contact the GDX Service desk for any analytics service help, for inquiries about starting a new analytics account for Government please contact The GDX Analytics team.
+Please Contact the GDX Service desk at gcpe.servicedesk@gov.bc.ca for any analytics service help. For inquiries about starting a new analytics account please contact the GDX Analytics Team.
 
 ## Contributors
 
-The GDX analytics team will be the main contributors to this project currently. They will also maintain the code as well. 
+The GDX Analytics Team will be the main contributors to this project currently. They will maintain the code as well. 
 
 ## License
 

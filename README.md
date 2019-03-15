@@ -1,45 +1,61 @@
 ## GDX Analytics
 
-This is for the Government of British Columbia’s instance of Snowplow tracking. Snowplow is a Cloud-native web, mobile and event analytics, running on AWS (RedShift).
+This is the central repository for work by the GDX Analytics Team. 
 
 ## Features
 
-Identifies and tracks the way your users engage with your website or application.
+The GDX Analytics Service uses [Snowplow](http://snowplowanalytics.com/) and [Looker](http://looker.com/) to provide analytics for online and offline service delivery. 
 
 ## Project Status
 
-Currently this project is still in development.
+This project is currently under development and actively supported by the GDX Analytics Team.
 
-The contents by directory are:
+## Contents by Directory:
 
 #### [examples/](./examples/)
 
-- proof of concept examples of the code required to add Snowplow instrumentation client applications;
-- embed generators in Java and Python demonstrating the generation of cryptographically signed SSO embed URL;
+- Proof of concept examples of the code required to add Snowplow instrumentation client applications;
+- Embed generators in Java and Python demonstrating the generation of cryptographically signed SSO embed URL;
 - The `s3-upload.sh` script, to upload files to S3 with standard Unix utilities, for example: to run as a cron job and load scheduled data dumps;
 - Snowplow schema files.
 
 #### [microservices/](./microservices/)
 
-- microservices running on EC2 to perform automated data loads of well formed data into RedShift.
+- Microservices running on EC2 to perform automated data loads of well formed data into RedShift.
 
 #### [web_trackers/](./web_trackers)
 
-- examples of the Javascript tracker used to push custom events to Snowplow;
+- Examples of the Javascript tracker used to push custom events to Snowplow;
 
 #### [testing/](./testing/)
 
-- scripts automating the testing strategies of the WebTrends to Snowplow migration.
+- Scripts automating the testing strategies of the WebTrends to Snowplow migration.
+
+## Relevant Repositories
+
+#### [GDX-Analytics-Looker-AWS-Cost-And-Usage/](https://github.com/bcgov/GDX-Analytics-Looker-AWS-Cost-And-Usage) 
+Provides GDX Analytics with reporting to track AWS usage, estimated charges, and line items by AWS product, usage type, and operation.
+#### [GDX-Analytics-Looker-cfms_block/](https://github.com/bcgov/GDX-Analytics-Looker-cfms_block)
+Represents an instance of the Government of British Columbia’s Service BC [LookerML](https://docs.looker.com/data-modeling/learning-lookml/what-is-lookml) project.
+#### [GDX-Analytics-Looker-Redshift_Admin_By_AWS/](https://github.com/bcgov/GDX-Analytics-Looker-Redshift_Admin_By_AWS)
+Provides a substitute for the AWS Console, helping users identify how tables are structured and if data flow is normal.
+#### [GDX-Analytics-Looker-Snowplow-Web-Block/](https://github.com/bcgov/GDX-Analytics-Looker-Snowplow-Web-Block)
+Represents an instance of the Government of British Columbia’s Web Analytics [LookerML](https://docs.looker.com/data-modeling/learning-lookml/what-is-lookml) project.
+#### [GDX-Analytics-Looker-Webtrends-Testing-Block/](https://github.com/bcgov/GDX-Analytics-Looker-Webtrends-Testing-Block)
+Represents the testing related to migration of Government of British Columbia’s data from WebTrends to Looker/Snowplow using [LookerML](https://docs.looker.com/data-modeling/learning-lookml/what-is-lookml).
+#### [GDX-Analytics-OpenShift-Snowplow-Gateway-Service/](https://github.com/bcgov/GDX-Analytics-OpenShift-Snowplow-Gateway-Service)
+A description will be added here soon.
 
 ## Getting Help
 
-Please Contact the GDX Service desk for any analytics service help, for inquiries about starting a new analytics account for Government please contact The GDX Analytics team.
+For Web Analytics help, please contact the GDX Service Desk via [GCPE GDX Client Service Desk Portal](https://apps.gcpe.gov.bc.ca/jira/servicedesk/customer/portal/9). For inquiries about starting a new analytics account please contact the GDX Analytics Team.
 
 ## Contributors
 
-The GDX analytics team will be the main contributors to this project currently. They will also maintain the code as well. 
+The GDX Analytics Team are the main contributors to this project.
 
 ## License
+
 
 Copyright 2015 Province of British Columbia
 

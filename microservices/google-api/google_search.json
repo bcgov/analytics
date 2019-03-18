@@ -4,6 +4,9 @@
     "sites":[
         { 
         "name":"https://www2.gov.bc.ca/"
+        },
+        { 
+        "name":"https://efficiencybc.ca/"
         }
     ]
 }

@@ -214,7 +214,7 @@ for site_item in sites:
             
             index = 0
             while (index == 0 or ('rows' in search_analytics_response)):
-                print str(date)  + " " + str(index)
+                print str(date_in_range)  + " " + str(index)
                 
                 # The request body for the Google Search API query
                 bodyvar = {

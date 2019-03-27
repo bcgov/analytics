@@ -27,15 +27,13 @@ hostname = sys.argv[1]  # caps.pathfinder.gov.bc.ca
 hostport = sys.argv[2]  # 80
 
 # make the POST call that contains the event data
-def post_event(event):
-    # Create a JSON object from the event dictionary
-    json_data = json.dumps(event)
+def post_event(json_event):
     # Make a connection
     conn = http.client.HTTPConnection(hostname, hostport)
     # Prepare the headers
     headers = {'Content-type': 'application/json'}
     # Send a post request containing the event as JSON in the body
-    conn.request('POST', '/post', json_data, headers)
+    conn.request('POST', '/post', json_event, headers)
     # Recieve the response
     response = conn.getresponse()
     # Print the response
@@ -58,48 +56,63 @@ def event(schema, contexts, data):
 def event_timestamp():
     return int(round(time.time() * 1000))
 
-def get_citizen(client_id,service_count,quick_txn):
+def get_citizen(client_id,service_count,quick_txn,schema):
     # Set up the citizen context.
     citizen = {
-        'client_id': client_id,
-        'service_count': service_count,
-        'quick_txn': quick_txn
+        'data':
+        {
+            'client_id': client_id,
+            'service_count': service_count,
+            'quick_txn': quick_txn
+        },
+        'schema':schema
     }
     return citizen
 
-def get_office(office_id,office_type):
+def get_office(office_id,office_type,schema):
     # Set up the office context.
     office = {
-        'office_id': office_id,
-        'office_type': office_type
+        'data':
+        {
+            'office_id': office_id,
+            'office_type': office_type
+        },
+        'schema':schema
     }
     return office
 
-def get_agent(agent_id,role,quick_txn):
+def get_agent(agent_id,role,quick_txn,schema):
     # Set up the service context.
     agent = {
-        'agent_id': agent_id,
-        'role': role,
-        'quick_txn': quick_txn
+        'data':
+        {
+            'agent_id': agent_id,
+            'role': role,
+            'quick_txn': quick_txn
+        },
+        'schema':schema
     }
     return agent
 
 # Prepare the event requirements
 configuration = {
-    'env':'test', # test or prod
+    'env':'prod', # test or prod
     'namespace':'GDX-OpenShift-Test',
     'app_id':'GDX-OpenShift-Test'
 }
 
 # Example values contexts
 ## citizen
+citizen_schema='iglu:ca.bc.gov.cfmspoc/citizen/jsonschema/3-0-0'
 client_id=283732
 service_count=15
 quick_txn=False
 ## office
+office_schema='iglu:ca.bc.gov.cfmspoc/office/jsonschema/1-0-0'
 office_id=14
 office_type='reception'
 ## agent
+agent_schema='iglu:ca.bc.gov.cfmspoc/agent/jsonschema/2-0-0'
 agent_id=15
 role='CSR'
 quick_txn=False
@@ -107,18 +120,21 @@ quick_txn=False
 citizen = get_citizen(
     client_id=client_id,
     service_count=service_count,
-    quick_txn=quick_txn
+    quick_txn=quick_txn,
+    schema=citizen_schema
 )
 
 office = get_office(
     office_id=office_id,
-    office_type=office_type
+    office_type=office_type,
+    schema=office_schema
 )
 
 agent = get_agent(
     agent_id=agent_id,
     role=role,
-    quick_txn=quick_txn
+    quick_txn=quick_txn,
+    schema=agent_schema
 )
 
 contexts = [citizen,office,agent]
@@ -133,5 +149,8 @@ data = {
 # create example event
 example_event = event(schema,contexts,data)
 
+# Create a JSON object from the event dictionary
+json_event = json.dumps(example_event)
+
 # POST the event to the Analytics service
-post_event(example_event)
+post_event(json_event)

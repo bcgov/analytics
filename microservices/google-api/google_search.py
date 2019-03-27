@@ -207,20 +207,20 @@ for site_item in sites:
                 yield date1 + timedelta(n)
 
 
-        for date in daterange(start_dt, end_dt):
+        for date_in_range in daterange(start_dt, end_dt):
             # A wait time of 250ms each query reduces HTTP 429 error "Rate Limit Exceeded", handled below
             wait_time = 0.25
             sleep(wait_time)
             
             index = 0
             while (index == 0 or ('rows' in search_analytics_response)):
-                print str(date)  + " " + str(index)
+                print str(date_in_range)  + " " + str(index)
                 
                 # The request body for the Google Search API query
                 bodyvar = {
                     "aggregationType" : 'auto',
-                    "startDate": str(date),
-                    "endDate": str(date),
+                    "startDate": str(date_in_range),
+                    "endDate": str(date_in_range),
                     "dimensions": [
                         "date",
                         "query",

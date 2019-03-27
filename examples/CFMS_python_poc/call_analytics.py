@@ -37,7 +37,7 @@ def post_event(json_event):
     # Recieve the response
     response = conn.getresponse()
     # Print the response
-    print(response.read().decode())
+    print(response.status, response.reason)
 
 # schema is a string to the iglu:ca.bc.gov schema for this event
 # context is the list of contexts as dictionaries for this event

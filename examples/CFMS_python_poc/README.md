@@ -33,9 +33,11 @@ $ python sn.py
 
 To run [call_analytics_openshift_gateway.py](./call_analytics_openshift_gateway.py):
 ```
-$ python call_analytics_openshift_gateway.py <<hostname>> <<hostport>>
+$ python call_analytics_openshift_gateway.py <<hostname>> [<<hostport>>]
 ```
-Likely values for `<<hostname>>` and `<<hostport>> ` are `caps.pathfinder.gov.bc.ca` and `80`. Note that this service is currently whitelisted only to BC Government IP ranges.
+- Likely values for the `<<hostname>>` argument are `caps.pathfinder.gov.bc.ca` (the production OpenShift route) or `0.0.0.0` (if testing locally).
+- Likely values for the `[<<hostport>>]` optional argument are `8080` (if testing locally).
+- Note that the GDX Analytics OpenShift Snowplow Gateway Service is currently whitelisted to allow only BC Government IP ranges (including the IP ranges for OpenShift itself).
 
 ## Special files in this repository
 The files in [examples/schemas/ca.bc.gov.cfmspoc](../schemas/ca.bc.gov.cfmspoc) are the Snowplow schema files. See https://github.com/snowplow/iglu for more info.

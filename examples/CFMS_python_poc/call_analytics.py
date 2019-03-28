@@ -23,19 +23,38 @@ import json
 import sys
 
 # GDX Analytics as a Service address information
-hostname = sys.argv[1]  # caps.pathfinder.gov.bc.ca
-hostport = sys.argv[2]  # 80
+# Prod: caps.pathfinder.gov.bc.ca
+# Test: test-caps.pathfinder.gov.bc.ca
+# Dev:  dev-caps.pathfinder.gov.bc.ca
+hostname = sys.argv[1]
+
+# hostport is only used if the listener app is running on 0.0.0.0.
+# do not specify a hostport if you a connecting to one of the Prod/Test/Dev routes
+hostport = sys.argv[2]
 
 # make the POST call that contains the event data
 def post_event(json_event):
-    # Make a connection
-    conn = http.client.HTTPConnection(hostname, hostport)
+
+    # Make the connection
+    if hostport:
+        # local connections use an HTTPConnection
+        conn = http.client.HTTPConnection(hostname,port=hostport)
+    else:
+        # connections to the Snowplow Endpoints use a secure HTTPSConnection
+        conn = http.client.HTTPSConnection(hostname)
+
     # Prepare the headers
     headers = {'Content-type': 'application/json'}
+    
     # Send a post request containing the event as JSON in the body
     conn.request('POST', '/post', json_event, headers)
+    
     # Recieve the response
-    response = conn.getresponse()
+    try:
+        response = conn.getresponse()
+    except ResponseNotReady:
+        print "ResponseNotReady Exception"
+        sys.exit(1)
     # Print the response
     print(response.status, response.reason)
 

@@ -3,10 +3,10 @@
 ### [sn.py](./sn.py)
 This code is a proof of concept of Python code required to add Snowplow instrumentation using the initial CFMS proof of concept model. For more information on the Snowplow Python Tracker see https://github.com/snowplow/snowplow-python-tracker.
 
-### [call_analytics.py](./call_analytics.py)
+### [call_analytics_openshift_gateway.py](./call_analytics_openshift_gateway.py)
 Sample Python script showing the structure of an example event, and the requirements to call the GDX Analytics OpenShift Snoplow Gateway service with that event data. See https://github.com/bcgov/GDX-Analytics-OpenShift-Snowplow-Gateway-Service
 
-- [call_analytics.py](./call_analytics.py) creates a json object to POST to the GDX Analytics OpenShift Snoplow Gateway service. An example of the *kind* of JSON event that service can accept is also provided here as [post_data.json](./post_data.json). This file may be helpful for tests of the service using tools like [Postman](https://www.getpostman.com/) or [Insomnia](https://insomnia.rest/), or simply using cURL as:
+- [call_analytics_openshift_gateway.py](./call_analytics_openshift_gateway.py) creates a json object to POST to the GDX Analytics OpenShift Snoplow Gateway service. An example of the *kind* of JSON event that service can accept is also provided here as [post_data.json](./post_data.json). This file may be helpful for tests of the service using tools like [Postman](https://www.getpostman.com/) or [Insomnia](https://insomnia.rest/), or simply using cURL as:
 ```
 curl -vX POST <<hostname>> -d @post_data.json --header "Content-Type: application/json"
 ```
@@ -22,7 +22,7 @@ If running [sn.py](./sn.py), you will first need to install the [snowplow-tracke
 $ sudo pip install snowplow-tracker
 ```
 
-*Note:* this package is not required to use analytics when calling the [GDX-Analytics OpenShift Snowplow Gateway Service](https://github.com/bcgov/GDX-Analytics-OpenShift-Snowplow-Gateway-Service) tracker such as through [call_analytics.py](./call_analytics.py), which requires only [http.client](https://docs.python.org/3/library/http.client.html), [time](https://docs.python.org/3/library/time.html), and [json](https://docs.python.org/3/library/json.html) from the Python Standard Library.
+*Note:* this package is not required to use analytics when calling the [GDX-Analytics OpenShift Snowplow Gateway Service](https://github.com/bcgov/GDX-Analytics-OpenShift-Snowplow-Gateway-Service) tracker such as through [call_analytics_openshift_gateway.py](./call_analytics_openshift_gateway.py). The only dependencies are: [http.client](https://docs.python.org/3/library/http.client.html), [time](https://docs.python.org/3/library/time.html), and [json](https://docs.python.org/3/library/json.html) from the Python Standard Library.
 
 ## To Run
 
@@ -31,9 +31,9 @@ To run  [sn.py](./sn.py):
 $ python sn.py
 ```
 
-To run [call_analytics.py](./call_analytics.py):
+To run [call_analytics_openshift_gateway.py](./call_analytics_openshift_gateway.py):
 ```
-$ python call_analytics.py <<hostname>> <<hostport>>
+$ python call_analytics_openshift_gateway.py <<hostname>> <<hostport>>
 ```
 Likely values for `<<hostname>>` and `<<hostport>> ` are `caps.pathfinder.gov.bc.ca` and `80`. Note that this service is currently whitelisted only to BC Government IP ranges.
 

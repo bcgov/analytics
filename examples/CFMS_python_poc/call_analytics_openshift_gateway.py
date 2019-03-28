@@ -30,18 +30,18 @@ hostname = sys.argv[1]
 
 # hostport is only used if the listener app is running on 0.0.0.0.
 # do not specify a hostport if you a connecting to one of the Prod/Test/Dev routes
-if len(sys.argv) is 3:
-    hostport = sys.argv[2]
+if hostname not in ('caps.pathfinder.gov.bc.ca','test-caps.pathfinder.gov.bc.ca','dev-caps.pathfinder.gov.bc.ca'):
+    if len(sys.argv) is 3:
+        hostport = sys.argv[2]
 
 # make the POST call that contains the event data
 def post_event(json_event):
-
     # Make the connection
     try:
         # local connections use an HTTPConnection
         conn = http.client.HTTPConnection(hostname,port=hostport)
     except NameError:
-        # connections to the Snowplow Endpoints use a secure HTTPSConnection
+        # connections to the OpenShift router use a secure HTTPSConnection
         conn = http.client.HTTPSConnection(hostname)
 
     # Prepare the headers
@@ -74,6 +74,7 @@ def event(schema, contexts, data):
 
 # time of event as an epoch timestamp in milliseconds
 def event_timestamp():
+    # time.time() returns the time in seconds with 6 decimal places of precision
     return int(round(time.time() * 1000))
 
 def get_citizen(client_id,service_count,quick_txn,schema):
@@ -133,7 +134,7 @@ office_id=14
 office_type='reception'
 ## agent
 agent_schema='iglu:ca.bc.gov.cfmspoc/agent/jsonschema/2-0-0'
-agent_id=15
+agent_id=99
 role='CSR'
 quick_txn=False
 

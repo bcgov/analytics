@@ -38,9 +38,8 @@ def post_event(json_event):
 
     # Make the connection
     try:
-        if hostport is not None:
-            # local connections use an HTTPConnection
-            conn = http.client.HTTPConnection(hostname,port=hostport)
+        # local connections use an HTTPConnection
+        conn = http.client.HTTPConnection(hostname,port=hostport)
     except NameError:
         # connections to the Snowplow Endpoints use a secure HTTPSConnection
         conn = http.client.HTTPSConnection(hostname)

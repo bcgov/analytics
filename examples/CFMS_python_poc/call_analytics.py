@@ -30,16 +30,18 @@ hostname = sys.argv[1]
 
 # hostport is only used if the listener app is running on 0.0.0.0.
 # do not specify a hostport if you a connecting to one of the Prod/Test/Dev routes
-hostport = sys.argv[2]
+if len(sys.argv) is 3:
+    hostport = sys.argv[2]
 
 # make the POST call that contains the event data
 def post_event(json_event):
 
     # Make the connection
-    if hostport:
-        # local connections use an HTTPConnection
-        conn = http.client.HTTPConnection(hostname,port=hostport)
-    else:
+    try:
+        if hostport is not None:
+            # local connections use an HTTPConnection
+            conn = http.client.HTTPConnection(hostname,port=hostport)
+    except NameError:
         # connections to the Snowplow Endpoints use a secure HTTPSConnection
         conn = http.client.HTTPSConnection(hostname)
 
@@ -52,7 +54,7 @@ def post_event(json_event):
     # Recieve the response
     try:
         response = conn.getresponse()
-    except ResponseNotReady:
+    except http.client.ResponseNotReady as e:
         print "ResponseNotReady Exception"
         sys.exit(1)
     # Print the response
@@ -115,7 +117,7 @@ def get_agent(agent_id,role,quick_txn,schema):
 
 # Prepare the event requirements
 configuration = {
-    'env':'prod', # test or prod
+    'env':'test', # test or prod
     'namespace':'GDX-OpenShift-Test',
     'app_id':'GDX-OpenShift-Test'
 }

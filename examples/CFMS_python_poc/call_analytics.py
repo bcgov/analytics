@@ -115,7 +115,7 @@ def get_agent(agent_id,role,quick_txn,schema):
 
 # Prepare the event requirements
 configuration = {
-    'env':'prod', # test or prod
+    'env':'test', # test or prod
     'namespace':'GDX-OpenShift-Test',
     'app_id':'GDX-OpenShift-Test'
 }

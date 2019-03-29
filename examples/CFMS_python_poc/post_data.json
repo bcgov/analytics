@@ -1,0 +1,38 @@
+{
+    "env": "test",
+    "namespace": "GDX-OpenShift-Test",
+    "app_id": "GDX-OpenShift-Test",
+    "dvce_created_tstamp": 1555802400000,
+    "event_data_json": {
+        "contexts": [
+            {
+                "data": {
+                    "client_id": 283732,
+                    "service_count": 15,
+                    "quick_txn": false
+                },
+                "schema": "iglu:ca.bc.gov.cfmspoc/citizen/jsonschema/3-0-0"
+            },
+            {
+                "data": {
+                    "office_type": "reception",
+                    "office_id": 14
+                },
+                "schema": "iglu:ca.bc.gov.cfmspoc/office/jsonschema/1-0-0"
+            },
+            {
+                "data": {
+                    "agent_id": 15,
+                    "role": "CSR",
+                    "quick_txn": false
+                },
+                "schema": "iglu:ca.bc.gov.cfmspoc/agent/jsonschema/2-0-0"
+            }
+        ],
+        "data": {
+            "inaccurate_time": false,
+            "quantity": 66
+        },
+        "schema": "iglu:ca.bc.gov.cfmspoc/finish/jsonschema/2-0-0"
+    }
+}

@@ -1,13 +1,17 @@
 {
-    "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
-    "dbtable": "google.googlesearch",
-    "sites":[
-        { 
-        "name":"https://www2.gov.bc.ca/"
-        },
-        { 
-        "name":"https://efficiencybc.ca/",
-        "start_date_default":"2019-03-02"
-        }
-    ]
+  "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
+  "dbtable": "google.googlesearch",
+  "sites": [
+    {
+      "name": "https://www2.gov.bc.ca/"
+    },
+    {
+      "name": "https://efficiencybc.ca/",
+      "start_date_default": "2019-03-02"
+    },
+    {
+      "name": "https://news.gov.bc.ca/",
+      "start_date_default": "2017-12-09"
+    }
+  ]
 }

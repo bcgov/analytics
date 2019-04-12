@@ -35,11 +35,11 @@ This script connects to the test instance of Snowplow (Snowplow Mini). When the 
 
 ## Getting Help
 
-Please Contact ryan.janes@gov.bc.ca for questions related to this work. 
+Please contact ryan.janes@gov.bc.ca for questions related to this work. 
 
 ## Contributors
 
-The GDX Analytics Team will be the main contributors to this project currently. They will also maintain the code. 
+The GDX Analytics Team will be the main contributors to this project currently and will maintain the code. 
 
 ## License
 

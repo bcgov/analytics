@@ -289,6 +289,7 @@ query = """
     WITH ids AS (
         SELECT cm.node_id,
             cm.title,
+            cm.hr_url,
             CASE
                 WHEN cm.parent_node_id = 'CA4CBBBB070F043ACF7FB35FE3FD1081' and cm.page_type = 'BC Gov Theme' THEN cm.node_id
                 WHEN cm.ancestor_nodes = '||' THEN cm.parent_node_id
@@ -311,17 +312,20 @@ query = """
             END AS topic_id
             FROM cmslite.metadata AS cm
             LEFT JOIN cmslite.metadata AS cm_parent ON cm_parent.node_id = cm.parent_node_id
+        ),
+    biglist AS (
+        SELECT
+            ROW_NUMBER () OVER ( PARTITION BY ids.node_id ) AS index,
+            ids.*,
+            cm_theme.title AS theme,
+            cm_sub_theme.title AS subtheme,
+            cm_topic.title AS topic
+            FROM ids
+            LEFT JOIN cmslite.metadata AS cm_theme ON cm_theme.node_id = theme_id
+            LEFT JOIN cmslite.metadata AS cm_sub_theme ON cm_sub_theme.node_id = subtheme_id
+            LEFT JOIN cmslite.metadata AS cm_topic ON cm_topic.node_id = topic_id
         )
-    SELECT
-        ids.*,
-        cm_theme.title AS theme,
-        cm_sub_theme.title AS subtheme,
-        cm_topic.title AS topic
-        FROM ids
-        LEFT JOIN cmslite.metadata AS cm_theme ON cm_theme.node_id = theme_id
-        LEFT JOIN cmslite.metadata AS cm_sub_theme ON cm_sub_theme.node_id = subtheme_id
-        LEFT JOIN cmslite.metadata AS cm_topic ON cm_topic.node_id = topic_id
-    ;
+        SELECT node_id, title, hr_url, theme_id, subtheme_id, topic_id, theme, subtheme, topic FROM biglist WHERE index = 1 ;
     """
 
 log(query)

@@ -288,3 +288,62 @@ for site_item in sites:
         else:
             #refresh last_loaded with the most recent load date
             last_loaded_date = last_loaded(site_name)
+
+
+# now we run the single-time load on the cmslite.google_pdt
+query = """
+-- perform this as a transaction. That is, either the whole thing completes, or it leave the old table intact
+BEGIN;
+DROP TABLE IF EXISTS cmslite.google_pdt_scratch;
+DROP TABLE IF EXISTS cmslite.google_pdt_old;
+
+CREATE TABLE IF NOT EXISTS cmslite.google_pdt_scratch (
+        "site"          VARCHAR(255),
+        "date"          date,
+        "query"         VARCHAR(2047),
+        "country"       VARCHAR(255),
+        "device"        VARCHAR(255),
+        "page"          VARCHAR(2047),
+        "position"      FLOAT,
+        "clicks"        DECIMAL,
+        "ctr"           FLOAT,
+        "impressions"   DECIMAL,
+        "node_id"       VARCHAR(255),
+        "page_urlhost"  VARCHAR(255),
+        "title"         VARCHAR(2047),
+        "theme_id"      VARCHAR(255),
+        "subtheme_id"   VARCHAR(255),
+        "topic_id"      VARCHAR(255),
+        "theme"         VARCHAR(2047),
+        "subtheme"      VARCHAR(2047),
+        "topic"         VARCHAR(2047)
+);
+ALTER TABLE cmslite.google_pdt_scratch OWNER TO microservice;
+GRANT SELECT ON cmslite.google_pdt_scratch TO looker;
+
+INSERT INTO cmslite.google_pdt_scratch
+      SELECT gs.*,
+      COALESCE(node_id,'') AS node_id,
+      SPLIT_PART(site, '/',3) as page_urlhost,
+      title,
+      theme_id, subtheme_id, topic_id, theme, subtheme, topic
+      FROM google.googlesearch AS gs
+      -- fix for misreporting of redirected front page URL in Google search
+      LEFT JOIN cmslite.themes AS themes ON CASE WHEN page = 'https://www2.gov.bc.ca/' THEN 'https://www2.gov.bc.ca/gov/content/home' ELSE page END = themes.hr_url;
+
+ALTER TABLE cmslite.google_pdt RENAME TO google_pdt_old;
+ALTER TABLE cmslite.google_pdt_scratch RENAME TO google_pdt;
+DROP TABLE cmslite.google_pdt_old;
+COMMIT;
+    """
+
+log(query)
+with psycopg2.connect(conn_string) as conn:
+    with conn.cursor() as curs:
+        try:
+            curs.execute(query)
+        except psycopg2.Error as e: 
+            log("Google Search PDT loading failed\n\n")
+            log(e.pgerror)
+        else:                       
+            log("Google Search PDT loaded successfully\n\n")

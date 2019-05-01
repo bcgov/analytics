@@ -65,7 +65,7 @@ The GDX Analytics LookML project to support SDPR's TheQ implementation.
 
 A gateway service to handle event analytics for BC Government projects on the OpenShift cluster.
 
-#### [GDX-Analytics-Drupal_snowplow/] (https://github.com/bcgov/GDX-Analytics-Drupal-Snowplow)
+#### [GDX-Analytics-Drupal_snowplow/](https://github.com/bcgov/GDX-Analytics-Drupal-Snowplow)
 
 A Drupal 8 module that runs the GDX-Analytics Snowplow web trackers.
 

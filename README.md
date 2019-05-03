@@ -69,6 +69,10 @@ A gateway service to handle event analytics for BC Government projects on the Op
 
 A Drupal 8 module that runs the GDX-Analytics Snowplow web trackers.
 
+#### [GDX-Analytics-Looker-Google-Block](https://github.com/bcgov/GDX-Analytics-Looker-Google-Block)
+
+This is for the Government of British Columbia’s instance their Google API LookerML project. LookerML is a language for describing dimensions, aggregates, calculations and data relationships in a SQL database
+
 ## Getting Help
 
 For Web Analytics help, please contact the GDX Service Desk via [GCPE GDX Client Service Desk Portal](https://apps.gcpe.gov.bc.ca/jira/servicedesk/customer/portal/9). For inquiries about starting a new analytics account please contact the GDX Analytics Team.

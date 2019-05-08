@@ -34,12 +34,11 @@ will upload the file "`foo.csv`" in the local directory "`local/path`" and place
 
 ## Getting Help
 
-Please Contact dan.pollock@gov.bc.ca for questions related to this work. 
+Please contact dan.pollock@gov.bc.ca for questions related to this work.
 
 ## Contributors
 
-The GDX analytics team will be the main contributors to this project currently. They will also maintain the code as well. This is based on [vszakats/s3-upload.sh](https://gist.github.com/vszakats/2917d28a951844ab80b1)
-
+The GDX analytics team will be the main contributors to this project currently. They will also maintain the code. This is based on [vszakats/s3-upload.sh](https://gist.github.com/vszakats/2917d28a951844ab80b1)
 
 ## License
 
@@ -55,4 +54,3 @@ Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and limitations under the License.
-

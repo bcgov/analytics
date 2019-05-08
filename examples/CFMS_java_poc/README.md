@@ -60,11 +60,11 @@ The files in [../../schemas/ca.bc.gov.cfmspoc](../../schemas/ca.bc.gov.cfmspoc) 
 
 ## Getting Help
 
-Please Contact dan.pollock@gov.bc.ca for questions related to this work. 
+Please contact dan.pollock@gov.bc.ca for questions related to this work. 
 
 ## Contributors
 
-The GDX analytics team will be the main contributors to this project currently. They will also maintain the code as well. 
+The GDX analytics team will be the main contributors to this project currently. They will also maintain the code. 
 
 ## License
 

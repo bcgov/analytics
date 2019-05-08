@@ -39,7 +39,7 @@ Contact the GDX Analytics team for a valid LOOKERKEY value and usage help.
 
 ## Contributors
 
-The GDX Analytics team will be the main contributors to this project currently. They will also maintain the code as well. 
+The GDX Analytics team will be the main contributors to this project currently. They will also maintain the code. 
 
 ## License
 

@@ -4,7 +4,7 @@ Scripts to assist in regular maintenance procedures on EC2 instances or other se
 
 ## Getting Help
 
-These scripts are intented for internal use. Please Contact the GDX Analtics Team for more information.
+These scripts are intented for internal use. Please contact the GDX Analytics Team for more information.
 
 ## Contributors
 

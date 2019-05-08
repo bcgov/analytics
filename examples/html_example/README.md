@@ -1,8 +1,8 @@
 ## GDX Analytics HTML/Javascript Example
 
-This code demonstrates using the HTML/Javascript tracker to push custom events the the Snowplow Tracker. For more information on the Snowplow Javascript Tracker see https://github.com/snowplow/snowplow-javascript-tracker. 
+This code demonstrates using the HTML/Javascript tracker to push custom events to the Snowplow Tracker. For more information on the Snowplow Javascript Tracker see https://github.com/snowplow/snowplow-javascript-tracker. 
 
-In this example, [index.html](index.html) demonstrates how to use Javascript listeners on basic form elements to events to a custom Snowplow schema as defined in [../schemas/ca.bc.gov.demo](../schemas/ca.bc.gov.demo).
+In this example, [index.html](index.html) demonstrates how to use Javascript listeners on basic form elements to push events to a custom Snowplow schema as defined in [../schemas/ca.bc.gov.demo](../schemas/ca.bc.gov.demo).
 
 ## Project Status
 
@@ -10,7 +10,7 @@ Currently this project is still in development.
 
 ## Getting Help
 
-Please Contact dan.pollock@gov.bc.ca for questions related to this work. 
+Please contact dan.pollock@gov.bc.ca for questions related to this work. 
 
 ## Contributors
 

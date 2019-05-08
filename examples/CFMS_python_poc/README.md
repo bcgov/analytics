@@ -65,7 +65,7 @@ To ensure that Python loads this CA, can set this environment variable:
 
 ## Getting Help
 
-Please Contact dan.pollock@gov.bc.ca for questions related to this work. 
+Please contact dan.pollock@gov.bc.ca for questions related to this work. 
 
 ## Contributors
 

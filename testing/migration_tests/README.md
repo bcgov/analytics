@@ -6,7 +6,7 @@ These scripts are part of an ongoing project while WebTrends migration is ongoin
 
 ## Getting Help
 
-These scripts are intented for internal use. Please Contact the GDX Analtics Team for more information.
+These scripts are intended for internal use. Please Contact the GDX Analtics Team for more information.
 
 ## Contributors
 

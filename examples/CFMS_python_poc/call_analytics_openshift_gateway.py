@@ -1,26 +1,30 @@
 ###################################################################
 # Script Name   : call_analytics.py
-#               
+#
 # Description   : Sample Python script showing the structure of an
 #               : example event, and the requirements to call the
 #               : GDX Analytics OpenShift Snoplow Gateway service
 #               : with that event data.
-#               
-# Requirements  : You must pass the hostname and port as args
-#               
+#
+# Requirements  : You must pass the hostname as the first argument.
+#               : A second argument for the port is required if calling
+#               : a listener that is not on the BCGov OpenShift cluster.
+#
 # Usage         : configure the Example values to your preference,
 #               : then call the script from the command line:
 #               : $ python call_analytics.py <<hostname>> <<hostport>>
 #               :
 #               : For example:
-#               : $ python call_analytics.py caps.pathfinder.gov.bc.ca 80
-#               
+#               : $ python call_analytics.py caps.pathfinder.bcgov
+#               : $ python call_analytics.py localhost 8080
+#
 # References    : https://github.com/bcgov/GDX-Analytics-OpenShift-Snowplow-Gateway-Service
 
 import http.client
 import time
 import json
 import sys
+import ssl
 
 # GDX Analytics as a Service address information
 # Prod: caps.pathfinder.gov.bc.ca
@@ -30,7 +34,7 @@ hostname = sys.argv[1]
 
 # hostport is only used if the listener app is running on 0.0.0.0.
 # do not specify a hostport if you a connecting to one of the Prod/Test/Dev routes
-if hostname not in ('caps.pathfinder.gov.bc.ca','test-caps.pathfinder.gov.bc.ca','dev-caps.pathfinder.gov.bc.ca'):
+if hostname not in ('caps.pathfinder.bcgov','test-caps.pathfinder.bcgov','dev-caps.pathfinder.bcgov'):
     if len(sys.argv) is 3:
         hostport = sys.argv[2]
 
@@ -42,19 +46,20 @@ def post_event(json_event):
         conn = http.client.HTTPConnection(hostname,port=hostport)
     except NameError:
         # connections to the OpenShift router use a secure HTTPSConnection
-        conn = http.client.HTTPSConnection(hostname)
+        conn = http.client.HTTPSConnection(hostname,context=ssl._create_unverified_context())
 
     # Prepare the headers
     headers = {'Content-type': 'application/json'}
-    
+
     # Send a post request containing the event as JSON in the body
     conn.request('POST', '/post', json_event, headers)
-    
+
+
     # Recieve the response
     try:
         response = conn.getresponse()
     except http.client.ResponseNotReady as e:
-        print "ResponseNotReady Exception"
+        print("ResponseNotReady Exception")
         sys.exit(1)
     # Print the response
     print(response.status, response.reason)

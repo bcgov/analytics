@@ -25,16 +25,20 @@ import time
 import json
 import sys
 import ssl
+from socket import gaierror
 
 # GDX Analytics as a Service address information
 # Prod: caps.pathfinder.gov.bc.ca
 # Test: test-caps.pathfinder.gov.bc.ca
 # Dev:  dev-caps.pathfinder.gov.bc.ca
 hostname = sys.argv[1]
+bcgov_hosts = ['caps.pathfinder.bcgov',
+               'test-caps.pathfinder.bcgov',
+               'dev-caps.pathfinder.bcgov']
 
 # hostport is only used if the listener app is running on 0.0.0.0.
 # do not specify a hostport if you a connecting to one of the Prod/Test/Dev routes
-if hostname not in ('caps.pathfinder.bcgov','test-caps.pathfinder.bcgov','dev-caps.pathfinder.bcgov'):
+if hostname not in bcgov_hosts:
     if len(sys.argv) is 3:
         hostport = sys.argv[2]
 
@@ -52,7 +56,11 @@ def post_event(json_event):
     headers = {'Content-type': 'application/json'}
 
     # Send a post request containing the event as JSON in the body
-    conn.request('POST', '/post', json_event, headers)
+    try:
+        conn.request('POST', '/post', json_event, headers)
+    except gaierror as e:
+        print("Failure getting address info. \nYour IP address may not be whitelisted to the listener.")
+        sys.exit(1)
 
 
     # Recieve the response

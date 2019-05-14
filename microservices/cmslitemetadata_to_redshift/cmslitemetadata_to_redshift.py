@@ -35,12 +35,25 @@ import datetime
 # we will use this timestamp to write to the cmslite.microservice_log tablee
 starttime = str(datetime.datetime.now())
 
+# set up logging
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-# set up debugging
-debug = True
-def log(s):
-    if debug:
-        print s
+# create console handler for logs at the WARNING level
+handler = logging.StreamHandler()
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter("%(levelname)s:%(name)s:%(asctime)s:%(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+# create file handler for logs at the INFO level
+log_filename = '{0}'.format(os.path.basename(__file__).replace('.py','.log'))
+handler = logging.FileHandler(os.path.join('logs', log_filename),"a", encoding=None, delay="true")
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(levelname)s:%(name)s:%(asctime)s:%(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 # define a function to output a dataframe to a CSV on S3
 
@@ -52,7 +65,7 @@ def log(s):
 #   df = the dataframe to write out
 #   columnlist = a list of columns to use from the dataframe. Must be the same order as the SQL table. If null (eg None in Python), will write all columns in order.
 #   index = if not Null, add an index column with this label
-#   
+#
 def to_s3(bucket, batchfile, filename, df, columnlist, index):
 
     # Put the full data set into a buffer and write it to a "   " delimited file in the batch directory
@@ -68,7 +81,7 @@ def to_s3(bucket, batchfile, filename, df, columnlist, index):
         else: # column list, include index
             df.to_csv(csv_buffer, header=True, index=True, sep="	", columns=columnlist, index_label=index, encoding='utf-8')
 
-    log("Writing " + filename + " to " + batchfile)
+    logger.debug("Writing " + filename + " to " + batchfile)
     resource.Bucket(bucket).put_object(Key=batchfile + "/" + filename, Body=csv_buffer.getvalue())
 
 def to_dict(df, section):
@@ -81,11 +94,11 @@ def to_dict(df, section):
 
 # Read configuration file
 if (len(sys.argv) != 2): #will be 1 if no arguments, 2 if one argument
-    print "Usage: python27 cmslitemetadata_to_redshift.py configfile.json"
+     "Usage: python27 cmslitemetadata_to_redshift.py configfile.json"
     sys.exit(1)
-configfile = sys.argv[1] 
+configfile = sys.argv[1]
 if (os.path.isfile(configfile) == False): # confirm that the file exists
-    print "Invalid file name " + configfile
+    logger.error("Invalid file name " + configfile)
     sys.exit(1)
 with open(configfile) as f:
     data = json.load(f)
@@ -128,8 +141,6 @@ conn_string = "dbname='snowplow' host='snowplow-ca-bc-gov-main-redshi-resredshif
 for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory + "/"):
     # Look for objects that match the filename pattern
     if re.search(doc + '$', object_summary.key):
-        log('{0}:{1}'.format(my_bucket.name, object_summary.key))
-
         # Check to see if the file has been processed already
         batchfile = destination + "/batch/" + object_summary.key
         goodfile = destination + "/good/" + object_summary.key
@@ -139,16 +150,16 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory +
         except:
             True
         else:
-            log("File processed already. Skip.\n\n")
+            logger.debug("{0}:{1} processed already. Skip.".format(my_bucket.name, object_summary.key))
             continue
         try:
             client.head_object(Bucket=bucket, Key=badfile)
         except:
             True
         else:
-            log("File failed already. Skip.\n\n")
+            logger.debug("{0}:{1} File failed already. Skip.".format(my_bucket.name, object_summary.key))
             continue
-        log("File not already processed. Proceed.\n")
+        logger.info("{0}:{1} File not already processed. Proceed.".format(my_bucket.name, object_summary.key))
 
         # Load the object from S3 using Boto and set body to be its contents
         obj = client.get_object(Bucket=bucket, Key=object_summary.key)
@@ -162,19 +173,19 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory +
         # Check for an empty file. If it's empty, accept it as good and move on
         try:
             df = pd.read_csv(StringIO(csv_string), sep=delim, index_col=False, dtype = dtype_dic, usecols=range(column_count))
-        except Exception as e: 
+        except Exception as e:
             if (str(e) == "No columns to parse from file"):
-                log("Empty file, proceeding")
+                logger.debug("Empty file, proceeding")
                 outfile = goodfile
             else:
-                print "Parse error: " + str(e) 
-                outfile = badfile 
+                logger.error("Parse error: " + str(e))
+                outfile = badfile
 
-            # For the two exceptions cases, write to either the Good or Bad folder. Otherwise, continue to process the file. 
+            # For the two exceptions cases, write to either the Good or Bad folder. Otherwise, continue to process the file.
             client.copy_object(Bucket="sp-ca-bc-gov-131565110619-12-microservices", CopySource="sp-ca-bc-gov-131565110619-12-microservices/"+object_summary.key, Key=outfile)
             continue
 
-        # set the data frame to use the columns listed in the .conf file. Note that this overrides the columns in the file, and will give an error if the wrong number of columns is present. It will not validate the existing column names. 
+        # set the data frame to use the columns listed in the .conf file. Note that this overrides the columns in the file, and will give an error if the wrong number of columns is present. It will not validate the existing column names.
         df.columns = columns
 
         # Run rename to change column names
@@ -183,7 +194,7 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory +
                 if thisfield['old'] in df.columns:
                     df.rename(columns = {thisfield['old']:thisfield['new']}, inplace = True)
 
-        # Run replace on some fields to clean the data up 
+        # Run replace on some fields to clean the data up
         if 'replace' in data:
             for thisfield in data['replace']:
                 df[thisfield['field']].str.replace(thisfield['old'], thisfield['new'])
@@ -194,19 +205,19 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory +
             for thisfield in data['dateformat']:
                 df[thisfield['field']] = pd.to_datetime(df[thisfield['field']]).apply(lambda x: x.strftime(thisfield['format'])if not pd.isnull(x) else '')
 
-        # We loop over the columns listedin the .conf file. 
+        # We loop over the columns listedin the .conf file.
         # There are three sets of values that should match to consider:
         #   columns_lookup
         #   dbtables_dictionaries
         #   dbtables_metadata
-        #   
-        # As well, we add to the beginning of the for loop an index of -1 and process the main metadata table 
-        #   first. The table is built in the same way as the others, but this allows us to resuse the code below 
-        #   in the loop to write the batch file and run the SQL command. We should probably clean this up by 
-        #   converting the later half of the loop to a function instead. 
+        #
+        # As well, we add to the beginning of the for loop an index of -1 and process the main metadata table
+        #   first. The table is built in the same way as the others, but this allows us to resuse the code below
+        #   in the loop to write the batch file and run the SQL command. We should probably clean this up by
+        #   converting the later half of the loop to a function instead.
         #keep the dictionaries in storage
         dictionary_dfs = {}
-        for i in range (-1, len(columns_lookup)*2): 
+        for i in range (-1, len(columns_lookup)*2):
             if (i == -1):
                 column = "metadata"
                 dbtable = "metadata"
@@ -249,7 +260,7 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory +
 
             # output the the dataframe as a csv
             to_s3(bucket, batchfile, dbtable +'.csv', df_new, columnlist, key)
-        
+
             # NOTE: batchfile is replaced by: batchfile + "/" + dbtable + ".csv" below
             # if truncate is set to true, truncate the db before loading
             if (truncate):
@@ -260,17 +271,16 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory +
             query = "SET search_path TO " + dbschema + ";" + truncate_str + "copy " + dbtable +" FROM 's3://" + my_bucket.name + "/" + batchfile + "/" + dbtable + ".csv" + "' CREDENTIALS 'aws_access_key_id=" + os.environ['AWS_ACCESS_KEY_ID'] + ";aws_secret_access_key=" + os.environ['AWS_SECRET_ACCESS_KEY'] + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '	' NULL AS '-' ESCAPE;"
             logquery = "SET search_path TO " + dbschema + ";" + truncate_str + "copy " + dbtable +" FROM 's3://" + my_bucket.name + "/" + batchfile + "/" + dbtable + ".csv" + "' CREDENTIALS 'aws_access_key_id=" + 'AWS_ACCESS_KEY_ID' + ";aws_secret_access_key=" + 'AWS_SECRET_ACCESS_KEY' + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '	' NULL AS '-' ESCAPE;"
 
-            log(logquery)
+            logger.debug(logquery)
             with psycopg2.connect(conn_string) as conn:
                 with conn.cursor() as curs:
                     try:
                         curs.execute(query)
                     except psycopg2.Error as e: # if the DB call fails, print error and place file in /bad
-                        log("Loading failed\n\n")
-                        log(e.pgerror)
+                        logger.error("Loading failed\n{0}".format(e.pgerror))
                         outfile = badfile
                     else:                       # if the DB call succeed, place file in /good
-                        log("Loaded successfully\n\n")
+                        logger.info("Loaded successfully")
                         try:                    # if any of the csv's generated are bad, the file must output to /bad/
                             outfile
                         except NameError:
@@ -306,7 +316,7 @@ query = """
                 WHEN cm.parent_node_id = 'CA4CBBBB070F043ACF7FB35FE3FD1081' THEN NULL -- this page IS a theme, not a sub-theme
                 WHEN cm.ancestor_nodes = '||' AND cm.page_type = 'BC Gov Theme' THEN NULL -- this page is a sub-theme
                 WHEN TRIM(SPLIT_PART(cm.ancestor_nodes, '|', 3)) = '' AND cm_parent.page_type = 'BC Gov Theme' AND cm.page_type = 'Topic' THEN cm.node_id -- the page's parent is a sub-theme and it is a topic page
-                WHEN TRIM(SPLIT_PART(cm.ancestor_nodes, '|', 4)) = '' AND cm_parent.page_type = 'Topic' THEN cm.parent_node_id -- the page's parent is a topic        
+                WHEN TRIM(SPLIT_PART(cm.ancestor_nodes, '|', 4)) = '' AND cm_parent.page_type = 'Topic' THEN cm.parent_node_id -- the page's parent is a topic
                 WHEN TRIM(SPLIT_PART(cm.ancestor_nodes, '|', 4)) <> '' THEN TRIM(SPLIT_PART(cm.ancestor_nodes, '|', 4)) -- take the fourth entry. The first is always blank as the string has '|' on each end and the second is the theme, third is sub-theme
                 ELSE NULL
             END AS topic_id
@@ -328,22 +338,19 @@ query = """
         SELECT node_id, title, hr_url, theme_id, subtheme_id, topic_id, theme, subtheme, topic FROM biglist WHERE index = 1 ;
     """
 
-log(query)
+logger.debug(query)
 with psycopg2.connect(conn_string) as conn:
     with conn.cursor() as curs:
         try:
             curs.execute(query)
         except psycopg2.Error as e: # if the DB call fails, print error and place file in /bad
-            log("Themes table loading failed\n\n")
-            log(e.pgerror)
+            logger.error("Themes table loading failed\n{0}".format(e.pgerror))
         else:                       # if the DB call succeed, place file in /good
-            log("Themes table loaded successfully\n\n")
+            logger.info("Themes table loaded successfully")
             #if the job was succesful, write to the cmslite.microservice_log table
             endtime = str(datetime.datetime.now())
             query = "SET search_path TO cmslite; INSERT INTO microservice_log VALUES ('" + starttime + "', '" + endtime + "');"
             try:
                 curs.execute(query)
             except psycopg2.Error as e: # if the DB call fails, print error
-                log("Failed to write to cmslite.microservice_log")
-                log(e.pgerror)
-
+                logger.error("Failed to write to cmslite.microservice_log\n{0}".format(e.pgerror))

@@ -1,6 +1,6 @@
 ###################################################################
 #Script Name    : google_search.py
-# 
+#
 #
 #Description    : A script to access the Google Search Console
 #               : api, download analytcs info and dump to a CSV in S3
@@ -18,13 +18,13 @@
 #               :
 #               : You will need API credensials set up. If you don't have
 #               : a project yet, follow these instructions. Otherwise,
-#               : place your credentials.json file in the location defined 
+#               : place your credentials.json file in the location defined
 #               : below.
 #               :
 #               : ------------------
-#               : To set up the Google end of things, following this: 
+#               : To set up the Google end of things, following this:
 #               :    https://developers.google.com/api-client-library/python/start/get_started
-#               : the instructions are: 
+#               : the instructions are:
 #               :
 #               :
 #               : Set up a Google account linked to an IDIR service account
@@ -38,20 +38,19 @@
 #               :    You will have to configure a consent screen.
 #               :    You must provide an Application name, and under "Scopes for Google APIs"
 #               :    add the scopes: "../auth/webmasters" and "../auth/webmasters.readonly".
-#               :    
+#               :
 #               :    After you save, you will have to pick an application type. Choose Other
 #               :    and provide a name for this OAuth client ID.
-#               :    
+#               :
 #               :    Download the JSON file and place it in your directory as "credentials.json"
 #               :    as describe by the variable below
-#               :    
-#               :    When you first run it, it will ask you do do an OAUTH validation, which 
-#               :    will create a file "credentials.dat", saving that auhtorization. 
+#               :
+#               :    When you first run it, it will ask you do do an OAUTH validation, which
+#               :    will create a file "credentials.dat", saving that auhtorization.
 
 
 import string
 import re
-from pprint import pprint
 from datetime import date, timedelta, datetime
 from time import sleep
 import httplib2
@@ -73,11 +72,25 @@ import io # file and stream handling
 # Set time zone
 #os.environ['TZ'] = 'Americas/Vancouver'
 
-# set up debugging
-debug = True
-def log(s):
-    if debug:
-        print s
+# set up logging
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# create console handler for logs at the WARNING level
+handler = logging.StreamHandler()
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter("%(levelname)s:%(name)s:%(asctime)s:%(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+# create file handler for logs at the INFO level
+log_filename = '{0}'.format(os.path.basename(__file__).replace('.py','.log'))
+handler = logging.FileHandler(os.path.join('logs', log_filename),"a", encoding=None, delay="true")
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(levelname)s:%(name)s:%(asctime)s:%(message)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 def last_loaded(site_name):
     # Check for a last loaded date in Redshift
@@ -144,7 +157,7 @@ for site_item in sites:
         # offset start_dt one day ahead of last Redshift-loaded data
         else:
             start_dt = last_loaded_date + timedelta(days=1)
-        
+
         # if the start_dt is the latest date; there is no new data; go to next site
         if start_dt == latest_date:
             break
@@ -189,7 +202,6 @@ for site_item in sites:
 
         service = build(API_NAME, API_VERSION, http=http, discoveryServiceUrl=DISCOVERY_URI)
         #site_list_response = service.sites().list().execute()
-        #pprint(site_list_response)
 
         # prepare stream
         stream = io.StringIO()
@@ -211,11 +223,11 @@ for site_item in sites:
             # A wait time of 250ms each query reduces HTTP 429 error "Rate Limit Exceeded", handled below
             wait_time = 0.25
             sleep(wait_time)
-            
+
             index = 0
             while (index == 0 or ('rows' in search_analytics_response)):
-                print str(date_in_range)  + " " + str(index)
-                
+                logger.debug(str(date_in_range)  + " " + str(index))
+
                 # The request body for the Google Search API query
                 bodyvar = {
                     "aggregationType" : 'auto',
@@ -229,7 +241,7 @@ for site_item in sites:
                         "page"
                         ],
                     "rowLimit" : rowlimit,
-                                "startRow" : index * rowlimit 
+                                "startRow" : index * rowlimit
                     }
 
                 # This query to the Google Search API may eventually yield an HTTP response code of 429, "Rate Limit Exceeded".
@@ -241,15 +253,15 @@ for site_item in sites:
                         search_analytics_response = service.searchanalytics().query(siteUrl=site_name, body=bodyvar).execute()
                     except:
                         if retry == 11:
-                            print "Failing with HTTP error after 10 retries with query time easening."
+                            logger.error("Failing with HTTP error after 10 retries with query time easening.")
                             sys.exit()
                         wait_time = wait_time * 2
-                        print "retryring {0} with wait time {1}".format(retry,wait_time)
+                        logger.warning("retryring {0} with wait time {1}".format(retry,wait_time))
                         retry = retry + 1
                         sleep(wait_time)
                     else:
                         break
-                
+
                 index = index + 1
                 if ('rows' in search_analytics_response):
                     for row in search_analytics_response['rows']:
@@ -263,14 +275,14 @@ for site_item in sites:
 
         # Write the stream to an outfile in the S3 bucket with naming like "googlesearch-sitename-startdate-enddate.csv"
         resource.Bucket(bucket).put_object(Key=object_key, Body=stream.getvalue())
-        log('PUT_OBJECT: {0}:{1}'.format(outfile, bucket))
+        logger.debug('PUT_OBJECT: {0}:{1}'.format(outfile, bucket))
         object_summary = resource.ObjectSummary(bucket,object_key)
-        log('OBJECT LOADED ON: {0} \nOBJECT SIZE: {1}'.format(object_summary.last_modified, object_summary.size))
+        logger.debug('OBJECT LOADED ON: {0} \nOBJECT SIZE: {1}'.format(object_summary.last_modified, object_summary.size))
 
         # Prepare the Redshift query
-        query = "copy " + dbtable +" FROM 's3://" + bucket + "/" + object_key + "' CREDENTIALS 'aws_access_key_id=" + os.environ['AWS_ACCESS_KEY_ID'] + ";aws_secret_access_key=" + os.environ['AWS_SECRET_ACCESS_KEY'] + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"
-        logquery = "copy " + dbtable +" FROM 's3://" + bucket + "/" + object_key + "' CREDENTIALS 'aws_access_key_id=" + 'AWS_ACCESS_KEY_ID' + ";aws_secret_access_key=" + 'AWS_SECRET_ACCESS_KEY' + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"
-        log(logquery)
+        query = "copy " + dbtable + " FROM 's3://" + bucket + "/" + object_key + "' CREDENTIALS 'aws_access_key_id=" + os.environ['AWS_ACCESS_KEY_ID'] + ";aws_secret_access_key=" + os.environ['AWS_SECRET_ACCESS_KEY'] + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"
+        logquery = "copy " + dbtable + " FROM 's3://" + bucket + "/" + object_key + "' CREDENTIALS 'aws_access_key_id=" + 'AWS_ACCESS_KEY_ID' + ";aws_secret_access_key=" + 'AWS_SECRET_ACCESS_KEY' + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"
+        logger.debug(logquery)
 
         # Load into Redshift
         with psycopg2.connect(conn_string) as conn:
@@ -278,10 +290,9 @@ for site_item in sites:
                 try:
                     curs.execute(query)
                 except psycopg2.Error as e: # if the DB call fails, print error and place file in /bad
-                    log("Loading failed\n\n")
-                    log(e.pgerror)
+                    logger.error("Loading failed\n{0}".format(e.pgerror))
                 else:
-                    log("Loaded successfully\n\n")
+                    logger.info("Loaded successfully")
         # if we didn't add any new rows, set last_loaded_date to latest_date to break the loop, otherwise, set it to the last loaded date
         if last_loaded_date == last_loaded(site_name):
             last_loaded_date = latest_date
@@ -337,13 +348,12 @@ DROP TABLE cmslite.google_pdt_old;
 COMMIT;
     """
 
-log(query)
+logger.debug(query)
 with psycopg2.connect(conn_string) as conn:
     with conn.cursor() as curs:
         try:
             curs.execute(query)
-        except psycopg2.Error as e: 
-            log("Google Search PDT loading failed\n\n")
-            log(e.pgerror)
-        else:                       
-            log("Google Search PDT loaded successfully\n\n")
+        except psycopg2.Error as e:
+            logger.error("Google Search PDT loading failed\n{0}".format(e.pgerror))
+        else:
+            logger.info("Google Search PDT loaded successfully")

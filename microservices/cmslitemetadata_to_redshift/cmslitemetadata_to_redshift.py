@@ -94,7 +94,7 @@ def to_dict(df, section):
 
 # Read configuration file
 if (len(sys.argv) != 2): #will be 1 if no arguments, 2 if one argument
-     "Usage: python27 cmslitemetadata_to_redshift.py configfile.json"
+    logger.error("Usage: python27 cmslitemetadata_to_redshift.py configfile.json")
     sys.exit(1)
 configfile = sys.argv[1]
 if (os.path.isfile(configfile) == False): # confirm that the file exists

@@ -33,9 +33,10 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 # create console handler for logs at the WARNING level
+# This will be emailed when the cron task runs; formatted to give messages only
 handler = logging.StreamHandler()
 handler.setLevel(logging.INFO)
-formatter = logging.Formatter("%(levelname)s:%(name)s:%(asctime)s:%(message)s")
+formatter = logging.Formatter("%(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 

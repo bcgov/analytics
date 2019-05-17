@@ -1,9 +1,9 @@
 ###################################################################
-#Script Name    : load_aws_cost_and_usage.py
+# Script Name   : load_aws_cost_and_usage.py
 #
-#Description    : Script to load AWS Cost and Usage data into Redshift
+# Description   : Script to load AWS Cost and Usage data into Redshift
 #
-#Requirements   : You must set the following environment variables
+# Requirements  : You must set the following environment variables
 #               : to establish credentials for the microservice user
 #
 #               : export AWS_ACCESS_KEY_ID=<<KEY>>
@@ -11,22 +11,16 @@
 #               : export pgpass=<<DB_PASSWD>>
 #
 #
-#Usage          : python load_aws_cost_and_usage.py bucket yyyymm
+# Usage         : python load_aws_cost_and_usage.py bucket yyyymm
 #
 
-import boto3 # s3 access
-import pandas as pd # data processing
-import re # regular expressions
-from io import StringIO
-from io import BytesIO
-import os # to read environment variables
-import psycopg2 # to connect to Redshift
-import numpy as np # to handle numbers
-import json # to read json config files
-import sys # to read command line parameters
-import os.path #file handling
+import boto3  # s3 access
+import re  # regular expressions
+import os  # to read environment variables
+import psycopg2  # to connect to Redshift
+import sys  # to read command line parameters
 
-from operator import itemgetter, attrgetter, methodcaller
+from operator import attrgetter
 
 # set up logging
 import logging
@@ -34,22 +28,23 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 # create console handler for logs at the WARNING level
+# This will be emailed when the cron task runs; formatted to give messages only
 handler = logging.StreamHandler()
 handler.setLevel(logging.INFO)
-formatter = logging.Formatter("%(levelname)s:%(name)s:%(asctime)s:%(message)s")
+formatter = logging.Formatter("%(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 # create file handler for logs at the INFO level
-log_filename = '{0}'.format(os.path.basename(__file__).replace('.py','.log'))
-handler = logging.FileHandler(os.path.join('logs', log_filename),"a", encoding=None, delay="true")
+log_filename = '{0}'.format(os.path.basename(__file__).replace('.py', '.log'))
+handler = logging.FileHandler(os.path.join('logs', log_filename), "a", encoding=None, delay="true")
 handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter("%(levelname)s:%(name)s:%(asctime)s:%(message)s")
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 # Take two arguments 1. bucket 2. month (eg. 201806)
-if (len(sys.argv) != 3): #will be 1 if no arguments, 2 if one argument
+if (len(sys.argv) != 3):  # will be 1 if no arguments, 2 if one argument
     print "Usage: python load_aws_cost_and_usage.py bucket yyyymm"
     sys.exit(1)
 bucket = sys.argv[1]
@@ -60,18 +55,18 @@ source = '/aws_cost_and_usage_report/' + startmonth + '01-' + endmonth + '01'
 filename = 'aws_cost_and_usage_report-RedshiftCommands.sql'
 
 # set up S3 connection
-client = boto3.client('s3') #low-level functional API
-resource = boto3.resource('s3') #high-level object-oriented API
-my_bucket = resource.Bucket(bucket) #subsitute this for your s3 bucket name.
+client = boto3.client('s3')  # low-level functional API
+resource = boto3.resource('s3')  # high-level object-oriented API
+my_bucket = resource.Bucket(bucket)  # subsitute this for your s3 bucket name.
 key = ''
 
 # find the latest file matching "filename"
 for object_summary in sorted(my_bucket.objects.filter(Prefix=source),key=attrgetter('last_modified'),reverse=True):
     if re.search(filename, object_summary.key):
         logger.info('\nhttps://s3.console.aws.amazon.com/s3/object/sp-ca-bc-gov-131565110619-12-aws-cost-usage/'
-                 + object_summary.key
-                 + '\n' + object_summary.last_modified
-                 + '\n---')
+                    + object_summary.key
+                    + '\n' + object_summary.last_modified
+                    + '\n---')
         key = object_summary.key
         break
 

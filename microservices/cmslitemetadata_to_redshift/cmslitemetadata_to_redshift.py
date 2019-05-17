@@ -288,7 +288,6 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory +
                         logger.error("Loading {0} from {1} failed with Postgres error:\n{2}".format(dbtable, object_summary.key, e.pgerror))
                         outfile = badfile
                     else:  # if the DB call succeed, place file in /good
-                        # TODO
                         logger.info("Loaded {0} from {1} successfully".format(dbtable, object_summary.key))
                         try:  # if any of the csv's generated are bad, the file must output to /bad/
                             outfile

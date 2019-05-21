@@ -1,6 +1,8 @@
 ## S3 to Redshift Microservice
 
-These micrsoservice scripts automate the migration of well formed `csv` data on S3 into Redshift. The `json` configuration files specify the expected form of data.
+These microservice scripts automate the migration of well formed `csv` data on S3 into Redshift. The `json` configuration files specify the expected form of data.
+
+Logging for these services is output to stdout at the INFO level; and aggregated at the DEBUG level to the files named `./logs/<microservice_name>.log`.
 
 ## Project Status
 
@@ -14,7 +16,7 @@ Please contact the GDX Service desk at gcpe.servicedesk@gov.bc.ca for any analyt
 
 ## Contributors
 
-The GDX Analytics Team will be the main contributors to this project currently. They will maintain the code as well. 
+The GDX Analytics Team will be the main contributors to this project currently. They will maintain the code as well.
 
 ## License
 

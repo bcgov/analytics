@@ -4,7 +4,9 @@ The `google_search.py` script automates the loading of Google Search API data in
 
 The accompanying `google_search.json` configuration file specifies the bucket, schema, the sites to query the Google Search API for, and optional start dates on those sites.
 
-The microservice will begin loading from the `"start_date_default"` specified in microservice; or 16 months ago; or from the day after the last date that has already been loaded into Redshift. It currently runs for a maximum of 30 days at a time until 2 days ago (the latest available data from the Google Search API).
+The microservice will begin loading Google data from the date specified in the configuration as `"start_date_default"`. If that is unspecified, it will attempt to load data from 16 months ago relative to the script runtime. If more recent data already exists; it will load data from the day after the last date that has already been loaded into Redshift.
+
+It currently runs in batches of a maximum of 30 days at a time until 2 days ago (the latest available data from the Google Search API).
 
 ## Configuration
 
@@ -21,7 +23,7 @@ The JSON configuration is loaded as an environmental variable defined as `GOOGLE
     "bucket": string,
     "dbtable": "google.googlesearch",
     "sites":[
-        { 
+        {
         "name":"https://www2.gov.bc.ca/"
         }
     ]
@@ -38,7 +40,7 @@ Please Contact the GDX Service desk for any analytics service help. For inquirie
 
 ## Contributors
 
-The GDX analytics team will be the main contributors to this project currently and will maintain the code. 
+The GDX analytics team will be the main contributors to this project currently and will maintain the code.
 
 ## License
 

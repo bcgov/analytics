@@ -12,6 +12,12 @@
     {
       "name": "https://news.gov.bc.ca/",
       "start_date_default": "2017-12-09"
+    },
+    {
+        "name":"https://betterhomesbc.ca/"
+    },
+    {
+        "name":"https://betterbuildingsbc.ca/"
     }
   ]
 }

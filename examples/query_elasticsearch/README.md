@@ -24,7 +24,7 @@ pip install -r requirements.txt
 
 Usage example including optional `--debug`:
 ```
-python elasticsearch_tail.py --endpoint $ES_ENDPOINT --index $ES_INDEX --username $ES_USER --password $ES_PASS -application <app_id> --config <config_file> --debug
+python elasticsearch_tail.py --endpoint $ES_ENDPOINT --index $ES_INDEX --username $ES_USER --password $ES_PASS --application <app_id> --config <config_file> --debug
 ```
 
 A sample result will appear as (the following is not real data):

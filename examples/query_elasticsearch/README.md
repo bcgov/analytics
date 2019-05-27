@@ -14,7 +14,7 @@ export ES_ENDPOINT='<<ElasticSearch_Endpoint>>'
 export ES_INDEX='<<ElasticSearch_Index>>'
 ```
 
-It's also recommended to run a Python 2.7 virtual environment to install the required packages on:
+Optionally, you can run this in a Python 2.7 virtual environment, to avoid any possibility of package conflicts with your user level python library installations:
 
 ```
 virtualenv -p python2 venv

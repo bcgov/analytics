@@ -14,10 +14,12 @@
       "start_date_default": "2017-12-09"
     },
     {
-        "name":"https://betterhomesbc.ca/"
+       "name":"https://betterhomesbc.ca/",
+       "start_date_default":"2019-05-21"
     },
     {
-        "name":"https://betterbuildingsbc.ca/"
+       "name":"https://betterbuildingsbc.ca/",
+       "start_date_default":"2019-05-21"
     }
   ]
 }

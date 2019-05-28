@@ -70,6 +70,7 @@ if 'dbschema' in data:
 else:
     dbschema = 'microservice'
 dbtable = data['dbtable']
+table_name = dbtable[dbtable.rfind(".")+1:]
 column_count = data['column_count']
 columns = data['columns']
 dtype_dic = {}
@@ -87,6 +88,29 @@ else:
 client = boto3.client('s3')  # low-level functional API
 resource = boto3.resource('s3')  # high-level object-oriented API
 my_bucket = resource.Bucket(bucket)  # subsitute this for your s3 bucket name.
+b_name = my_bucket.name
+
+# AWS Access key ID and secret access key
+aws_key = os.environ['AWS_ACCESS_KEY_ID']
+aws_secret_key = os.environ['AWS_SECRET_ACCESS_KEY']
+
+# Database connection string
+conn_string = "dbname='snowplow' host='snowplow-ca-bc-gov-main-redshi-resredsh\
+iftcluster-13nmjtt8tcok7.c8s7belbz4fo.ca-central-1.redshift.amazonaws.com' \
+port='5439' user='microservice' password=" + os.environ['pgpass']
+
+
+# Constructs the database copy query string
+def query(dbtable, batchfile, log):
+    if log:
+        aws_key = 'AWS_ACCESS_KEY_ID'
+        aws_secret_key = 'AWS_SECRET_ACCESS_KEY'
+    query = "COPY {0} FROM 's3://{1}/{2}' \
+        CREDENTIALS 'aws_access_key_id={3};aws_secret_access_key={4}' \
+        IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;\
+        ".format(dbtable, b_name, batchfile, aws_key, aws_secret_key)
+    return query
+
 
 for object_summary in my_bucket.objects.filter(Prefix=source + "/"
                                                + directory + "/"):
@@ -165,25 +189,35 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
                                            Body=csv_buffer.getvalue())
 
         # prep database call to pull the batch file into redshift
-        conn_string = "dbname='snowplow' host='snowplow-ca-bc-gov-main-\
-            redshi-resredshiftcluster-13nmjtt8tcok7.c8s7belbz4fo.ca-central-1\
-            .redshift.amazonaws.com' port='5439' user='microservice' password="\
-            + os.environ['pgpass']
-        query = "copy " + dbtable + " FROM 's3://" + my_bucket.name + "/" \
-            + batchfile + "' CREDENTIALS 'aws_access_key_id=" + \
-            os.environ['AWS_ACCESS_KEY_ID'] + ";aws_secret_access_key=" + \
-            os.environ['AWS_SECRET_ACCESS_KEY'] + "' IGNOREHEADER AS 1 \
-            MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"
-        logquery = "copy " + dbtable + " FROM 's3://" + my_bucket.name + "/" \
-            + batchfile + "' CREDENTIALS 'aws_access_key_id=" + \
-            'AWS_ACCESS_KEY_ID' + ";aws_secret_access_key=" + \
-            'AWS_SECRET_ACCESS_KEY' + "' IGNOREHEADER AS 1 MAXERROR \
-            AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"
+        query = query(dbtable, batchfile, log=False)
+        logquery = query(dbtable, batchfile, log=True)
 
-        # if truncate is set to true, truncate the db before loading
+        # if truncate is set to true, perform a transaction that will
+        # replace the existing table data with the new data in one commit
         if (truncate):
-            query = "TRUNCATE " + dbtable + "; " + query
-            logquery = "TRUNCATE " + dbtable + "; " + logquery
+            scratch_start = """
+            BEGIN;
+            -- Clean up from last run if necessary
+            DROP TABLE IF EXISTS {0}_scratch;
+            DROP TABLE IF EXISTS {0}_old;
+
+            -- Create scratch table to copy new data into
+            CREATE TABLE {0}_scratch (LIKE {0});
+            ALTER TABLE {0}_scratch OWNER TO microservice;
+            GRANT SELECT ON {0}_scratch TO looker;\n
+            """.format(dbtable)
+            scratch_copy = query(dbtable + "_scratch", batchfile, log=False)
+            scratch_copy_log = query(dbtable + "_scratch", batchfile, log=True)
+            scratch_cleanup = """\n
+            -- Replace main table with scratch table, clean up the old table
+            ALTER TABLE {0} RENAME TO {1}_old;
+            ALTER TABLE {0}_scratch RENAME TO {1};
+            DROP TABLE {0}_old;
+            COMMIT;
+            """.format(dbtable, table_name)
+            query = scratch_start + scratch_copy + scratch_cleanup
+            logquery = scratch_start + scratch_copy_log + scratch_cleanup
+
         logger.debug(logquery)
         with psycopg2.connect(conn_string) as conn:
             with conn.cursor() as curs:

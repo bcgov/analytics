@@ -13,9 +13,9 @@
         };p[i].q=p[i].q||[];n=l.createElement(o);g=l.getElementsByTagName(o)[0];n.async=1;
         n.src=w;g.parentNode.insertBefore(n,g)}}(window,document,"script","https://sp-js.apps.gov.bc.ca/MDWay3UqFnIiGVLIo7aoMi4xMC4y.js","snowplow"));
 
-        var collector = drupalSettings['gdx_collector'];
+        var collector = 'spm.gov.bc.ca';
         window.snowplow('newTracker','rt',collector, {
-          appId: "Snowplow_standalone_nopixel",
+          appId: "Snowplow_standalone",
           platform: 'web',
           post: true,
           forceSecureTracker: true,

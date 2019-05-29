@@ -90,10 +90,6 @@ resource = boto3.resource('s3')  # high-level object-oriented API
 my_bucket = resource.Bucket(bucket)  # subsitute this for your s3 bucket name.
 b_name = my_bucket.name
 
-# AWS Access key ID and secret access key
-aws_key = os.environ['AWS_ACCESS_KEY_ID']
-aws_secret_key = os.environ['AWS_SECRET_ACCESS_KEY']
-
 # Database connection string
 conn_string = "dbname='snowplow' host='snowplow-ca-bc-gov-main-redshi-resredsh\
 iftcluster-13nmjtt8tcok7.c8s7belbz4fo.ca-central-1.redshift.amazonaws.com' \
@@ -101,21 +97,25 @@ port='5439' user='microservice' password=" + os.environ['pgpass']
 
 
 # Constructs the database copy query string
-def query(dbtable, batchfile, log):
+def copy_query(dbtable, batchfile, log):
     if log:
         aws_key = 'AWS_ACCESS_KEY_ID'
         aws_secret_key = 'AWS_SECRET_ACCESS_KEY'
-    query = "COPY {0} FROM 's3://{1}/{2}' \
-        CREDENTIALS 'aws_access_key_id={3};aws_secret_access_key={4}' \
-        IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;\
-        ".format(dbtable, b_name, batchfile, aws_key, aws_secret_key)
+    else:
+        aws_key = os.environ['AWS_ACCESS_KEY_ID']
+        aws_secret_key = os.environ['AWS_SECRET_ACCESS_KEY']
+    query = """
+COPY {0}\nFROM 's3://{1}/{2}'\n\
+CREDENTIALS 'aws_access_key_id={3};aws_secret_access_key={4}'\n\
+IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;\n
+""".format(dbtable, b_name, batchfile, aws_key, aws_secret_key)
     return query
 
 
 for object_summary in my_bucket.objects.filter(Prefix=source + "/"
                                                + directory + "/"):
     if re.search(doc + '$', object_summary.key):
-        logger.debug('{0}:{1}'.format(my_bucket.name, object_summary.key))
+        logger.debug('{0}:{1}'.format(b_name, object_summary.key))
 
         # Check to see if the file has been processed already
         batchfile = destination + "/batch/" + object_summary.key
@@ -189,32 +189,34 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
                                            Body=csv_buffer.getvalue())
 
         # prep database call to pull the batch file into redshift
-        query = query(dbtable, batchfile, log=False)
-        logquery = query(dbtable, batchfile, log=True)
+        query = copy_query(dbtable, batchfile, log=False)
+        logquery = copy_query(dbtable, batchfile, log=True)
 
         # if truncate is set to true, perform a transaction that will
         # replace the existing table data with the new data in one commit
         if (truncate):
             scratch_start = """
-            BEGIN;
-            -- Clean up from last run if necessary
-            DROP TABLE IF EXISTS {0}_scratch;
-            DROP TABLE IF EXISTS {0}_old;
+BEGIN;
+-- Clean up from last run if necessary
+DROP TABLE IF EXISTS {0}_scratch;
+DROP TABLE IF EXISTS {0}_old;
 
-            -- Create scratch table to copy new data into
-            CREATE TABLE {0}_scratch (LIKE {0});
-            ALTER TABLE {0}_scratch OWNER TO microservice;
-            GRANT SELECT ON {0}_scratch TO looker;\n
-            """.format(dbtable)
-            scratch_copy = query(dbtable + "_scratch", batchfile, log=False)
-            scratch_copy_log = query(dbtable + "_scratch", batchfile, log=True)
-            scratch_cleanup = """\n
-            -- Replace main table with scratch table, clean up the old table
-            ALTER TABLE {0} RENAME TO {1}_old;
-            ALTER TABLE {0}_scratch RENAME TO {1};
-            DROP TABLE {0}_old;
-            COMMIT;
-            """.format(dbtable, table_name)
+-- Create scratch table to copy new data into
+CREATE TABLE {0}_scratch (LIKE {0});
+ALTER TABLE {0}_scratch OWNER TO microservice;
+GRANT SELECT ON {0}_scratch TO looker;\n
+""".format(dbtable)
+            scratch_copy = copy_query(
+                dbtable + "_scratch", batchfile, log=False)
+            scratch_copy_log = copy_query(
+                dbtable + "_scratch", batchfile, log=True)
+            scratch_cleanup = """
+-- Replace main table with scratch table, clean up the old table
+ALTER TABLE {0} RENAME TO {1}_old;
+ALTER TABLE {0}_scratch RENAME TO {1};
+DROP TABLE {0}_old;
+COMMIT;
+""".format(dbtable, table_name)
             query = scratch_start + scratch_copy + scratch_cleanup
             logquery = scratch_start + scratch_copy_log + scratch_cleanup
 
@@ -230,10 +232,14 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
                     outfile = badfile
                 # if the DB call succeed, place file in /good
                 else:
-                    logger.info("Loaded {0} to RedShift succesfully"
+                    logger.info("Loaded {0} to RedShift successfully"
                                 .format(batchfile))
                     outfile = goodfile
 
-        client.copy_object(Bucket="sp-ca-bc-gov-131565110619-12-microservices",
-                           CopySource="sp-ca-bc-gov-131565110619-12-\
-                           microservices/" + object_summary.key, Key=outfile)
+        try:
+            client.copy_object(
+                Bucket="sp-ca-bc-gov-131565110619-12-microservices",
+                CopySource="sp-ca-bc-gov-131565110619-12-microservices/"
+                + object_summary.key, Key=outfile)
+        except boto3.exceptions.ClientError as e:
+            logger.exception("S3 transfer failed")

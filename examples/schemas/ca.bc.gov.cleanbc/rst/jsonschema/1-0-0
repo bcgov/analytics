@@ -1,0 +1,50 @@
+{
+	"$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
+	"description": "Schema to track use of the Rebate Search Tool.",
+	"self": {
+		"vendor": "ca.bc.gov.cleanbc",
+		"name": "rst",
+		"format": "jsonschema",
+		"version": "1-0-0"
+	},
+	"type": "object",
+        "properties": {
+                "action": {
+                        "type": "string",
+                        "enum": ["hover","click","submit","change","select","deselect"]
+                },
+                "element_type": {
+                        "type": ["string","null"],
+                        "enum": ["incentive","project","location","heating","filter","submit"]
+                },
+                "project_type": {
+                        "type": ["string","null"],
+                        "enum": ["Building a home","Renovating a home"]
+                },
+                "location": {
+                        "type": ["string","null"],
+                        "maxLength": 255
+                },
+                "heating_type": {
+                        "type": ["string","null"],
+                        "maxLength": 255
+                },
+                "filter_values": {
+                        "type": ["array","null"],
+                        "items": {
+                                "type": "string",
+                                "maxLength": 255
+                        }
+                },
+                "label": {
+                        "type": ["string","null"],
+                        "maxLength": 255
+                },
+                "rebate": {
+                        "type": ["string","null"],
+                        "maxLength": 255
+                }
+        },
+        "required": ["action"],
+	"additionalProperties": false
+}

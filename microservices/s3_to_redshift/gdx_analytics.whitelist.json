@@ -1,0 +1,15 @@
+{
+  "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
+  "source": "client",
+  "destination": "processed",
+  "directory": "gdx_analytics_whitelist",
+  "doc": "whitelist.*.csv",
+  "dbtable": "gdx_analytics.whitelist",
+  "column_count": 2,
+  "columns": [
+	"url",
+  "host_type"
+  ],
+  "delim": "," ,
+  "truncate": true
+}

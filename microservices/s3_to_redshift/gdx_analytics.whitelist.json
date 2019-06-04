@@ -7,8 +7,8 @@
   "dbtable": "gdx_analytics.whitelist",
   "column_count": 2,
   "columns": [
-	"urlhost",
-  "host_type"
+  	"urlhost",
+    "host_type"
   ],
   "delim": "," ,
   "truncate": true

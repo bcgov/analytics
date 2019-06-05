@@ -139,15 +139,13 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
 
         obj = client.get_object(Bucket=bucket, Key=object_summary.key)
         body = obj['Body']
-        new_csv = ''
-        line = body.readline()
-        while line:
-            parsed_line = re.sub(" (?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)","|",line)
-            new_csv += parsed_line
-            line = body.read_line()
-        body = new_csv
-        
-        csv_string = body.read().decode('utf-8')
+        csv_string = ''
+        if('gov_assets' in doc):
+            for line in body:
+                csv_string += re.sub(" (?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)","|",line)
+            csv_string = csv_string.decode('utf-8')
+        else:
+            csv_string = body.read().decode('utf-8')
 
         # Check for an empty file. If it's empty, accept it as good and move on
         try:

@@ -139,6 +139,14 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
 
         obj = client.get_object(Bucket=bucket, Key=object_summary.key)
         body = obj['Body']
+        new_csv = ''
+        line = body.readline()
+        while line:
+            parsed_line = re.sub(" (?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)","|",line)
+            new_csv += parsed_line
+            line = body.read_line()
+        body = new_csv
+        
         csv_string = body.read().decode('utf-8')
 
         # Check for an empty file. If it's empty, accept it as good and move on
@@ -200,7 +208,6 @@ BEGIN;
 -- Clean up from last run if necessary
 DROP TABLE IF EXISTS {0}_scratch;
 DROP TABLE IF EXISTS {0}_old;
-
 -- Create scratch table to copy new data into
 CREATE TABLE {0}_scratch (LIKE {0});
 ALTER TABLE {0}_scratch OWNER TO microservice;

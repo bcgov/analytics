@@ -1,0 +1,49 @@
+{
+    "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
+    "source": "client",
+    "destination": "processed",
+    "directory": "cmslite_gdx",
+    "doc": ".csv",
+    "dbtable": "govassets.cats_gdx",
+    "column_count": 10,
+    "columns": [
+      "IP",
+      "id",
+      "uid",
+      "date/timestamp",
+      "Request String",
+      "Status Code",
+      "Return Size",
+      "Referrer",
+      "User-Agent HTTP request header",
+      "custom"
+    ],
+    "drop_columns": [
+      "id",
+      "uid",
+      "custom"
+    ],
+    "dtype_dic_strings": [
+      "Source Translated Port"
+    ],
+    "delim": "|",
+    "truncate": false,
+    "dateformat": [
+      {
+        "field": "date/timestamp",
+        "format": "[%d/%b/%Y:%H:%M:%S -0700]"
+      }
+    ],
+    "replace": [
+      {
+        "field": "Request String",
+        "old": "GET ",
+        "new": ""
+      },
+      {
+        "field": "Request String",
+        "old": " HTTP/1.0",
+        "new": ""
+      }
+    ]
+  }

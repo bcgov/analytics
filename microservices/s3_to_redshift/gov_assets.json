@@ -7,15 +7,15 @@
     "dbtable": "govassets.cats_gdx",
     "column_count": 10,
     "columns": [
-      "IP",
+      "ip",
       "id",
       "uid",
       "date/timestamp",
-      "Request String",
-      "Status Code",
-      "Return Size",
-      "Referrer",
-      "User-Agent HTTP request header",
+      "request_string",
+      "status_code",
+      "return_size",
+      "referrer",
+      "user_agent_http_request_header",
       "custom"
     ],
     "drop_columns": [

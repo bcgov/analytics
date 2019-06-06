@@ -4,7 +4,7 @@
     "destination": "processed",
     "directory": "cmslite_gdx",
     "doc": ".csv",
-    "dbtable": "govassets.cats_gdx",
+    "dbtable": "cmslite.asset_downloads",
     "column_count": 10,
     "columns": [
       "ip",

@@ -43,6 +43,10 @@
                 "rebate": {
                         "type": ["string","null"],
                         "maxLength": 255
+                },
+                "description": {
+                        "type": ["string","null"],
+                        "maxLength": 255
                 }
         },
         "required": ["action"],

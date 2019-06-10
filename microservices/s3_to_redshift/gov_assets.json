@@ -45,5 +45,6 @@
         "old": " HTTP/1.0",
         "new": ""
       }
-    ]
+    ],
+    "csmlite_asset_downloads": "true"
   }

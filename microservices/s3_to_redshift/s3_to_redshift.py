@@ -139,7 +139,22 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
 
         obj = client.get_object(Bucket=bucket, Key=object_summary.key)
         body = obj['Body']
-        csv_string = body.read().decode('utf-8')
+        # Check that the file decodes as UTF-8. If it fails move to bad and end
+        try:
+            csv_string = body.read().decode('utf-8')
+        except UnicodeDecodeError as e:
+            logger.error(''.join((
+                          "Decoding UTF-8 failed for file {0}\n{1}"
+                          .format(object_summary.key, e.message),
+                          "Keying to badfile and skipping.")))
+            try:
+                client.copy_object(
+                    Bucket="sp-ca-bc-gov-131565110619-12-microservices",
+                    CopySource="sp-ca-bc-gov-131565110619-12-microservices/"
+                    + object_summary.key, Key=badfile)
+            except Exception as e:
+                logger.exception("S3 transfer failed.\n{0}".format(e.message))
+            continue
 
         # Check for an empty file. If it's empty, accept it as good and move on
         try:

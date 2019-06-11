@@ -143,7 +143,7 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
         try:
             csv_string = body.read().decode('utf-8')
         except UnicodeDecodeError as e:
-            logger.error(''.join((
+            logger.exception(''.join((
                           "Decoding UTF-8 failed for file {0}\n{1}"
                           .format(object_summary.key, e.message),
                           "Keying to badfile and skipping.")))

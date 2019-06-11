@@ -142,7 +142,13 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
         csv_string = ''
         if 'csmlite_asset_downloads' in data:
             for line in body:
-                csv_string += re.sub("^(.*) (.*) (.*) \[(.*)\] \"(.*)\" (.*) (.*) \"(.*)\" \"(.*)\" (.*)?$", "\\1|\\2|\\3|\\4|\\5|\\6|\\7|\\8|\\9|\\10",line.replace("|", "%7C"))
+                parsed_line = re.sub(
+                    "^(.*) (.*) (.*) \[(.*)\] \"(.*)\" (.*) (.*) \"(.*)\" \"(.*)\" (.*)?$",
+                    "\\1|\\2|\\3|\\4|\\5|\\6|\\7|\\8|\\9|\\10",
+                    line.replace("|", "%7C"))
+                while parsed_line.count("|") < 9:
+                    parsed_line += "|"
+                csv_string += parsed_line
             csv_string = csv_string.decode('utf-8')
         else:
             csv_string = body.read().decode('utf-8')

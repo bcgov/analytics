@@ -3,7 +3,7 @@
     "source": "client",
     "destination": "processed",
     "directory": "cmslite_gdx",
-    "doc": ".csv",
+    "doc": "gov_assets.*",
     "dbtable": "cmslite.asset_downloads",
     "column_count": 10,
     "columns": [
@@ -16,7 +16,7 @@
       "return_size",
       "referrer",
       "user_agent_http_request_header",
-      "custom"
+      "proxy"
     ],
     "drop_columns": [
       "id",

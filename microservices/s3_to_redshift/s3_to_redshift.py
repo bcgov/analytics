@@ -111,7 +111,6 @@ IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;\n
 """.format(dbtable, b_name, batchfile, aws_key, aws_secret_key)
     return query
 
-
 for object_summary in my_bucket.objects.filter(Prefix=source + "/"
                                                + directory + "/"):
     if re.search(doc + '$', object_summary.key):
@@ -140,14 +139,15 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
         obj = client.get_object(Bucket=bucket, Key=object_summary.key)
         body = obj['Body']
         csv_string = ''
-        if 'csmlite_asset_downloads' in data:
-            for line in body:
-                parsed_line = re.sub(
-                    "^(.*) (.*) (.*) \[(.*)\] \"(.*)\" (.*) (.*) \"(.*)\" \"(.*)\" (.*)?$",
-                    "\\1|\\2|\\3|\\4|\\5|\\6|\\7|\\8|\\9|\\10",
-                    line.replace("|", "%7C"))
+        if 'global_regex' in data:
+            body_stringified = body.read()
+            for line in body_stringified.splitlines():
+                parsed_line = re.sub(data['global_regex'][0]['match'],
+                    data['global_regex'][0]['replace'],
+                    line.replace("|","%7C"))
                 while parsed_line.count("|") < 9:
                     parsed_line += "|"
+                parsed_line += u"\u000A"
                 csv_string += parsed_line
             csv_string = csv_string.decode('utf-8')
         else:

@@ -141,13 +141,13 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
         csv_string = ''
         if 'global_regex' in data:
             body_stringified = body.read()
-            for line in body_stringified.splitlines():
+            for line in body_stringified.splitlines(): 
                 parsed_line = re.sub(data['global_regex'][0]['match'],
                     data['global_regex'][0]['replace'],
-                    line.replace("|","%7C"))
+                    line.replace("|","%7C"))                    
                 while parsed_line.count("|") < 9:
                     parsed_line += "|"
-                parsed_line += u"\u000A"
+                parsed_line = parsed_line.replace("| ","|") + u"\u000A"
                 csv_string += parsed_line
             csv_string = csv_string.decode('utf-8')
         else:

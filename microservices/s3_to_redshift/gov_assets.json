@@ -2,7 +2,7 @@
     "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
     "source": "client",
     "destination": "processed",
-    "directory": "test_brendan",
+    "directory": "cmslite_gdx",
     "doc": "gov_assets.*",
     "dbtable": "cmslite.asset_downloads",
     "column_count": 10,

@@ -148,8 +148,9 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
                         line.replace(data['global_regex']['string_replace']['match'],
                             data['global_regex']['string_replace']['replace']))
                     if matched:
+                        parsed_line = parsed_line + "\r\n"
+                        csv_string += parsed_line
                         break
-                csv_string += parsed_line
         else:
             csv_string = body.read()
         # Check that the file decodes as UTF-8. If it fails move to bad and end

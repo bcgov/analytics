@@ -138,18 +138,25 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
 
         obj = client.get_object(Bucket=bucket, Key=object_summary.key)
         body = obj['Body']
+        # Create an object to hold the data while parsing
         csv_string = ''
+        # Perform regex pattern replacements according to config, if defined
         if 'global_regex' in data:
             body_stringified = body.read()
             for line in body_stringified.splitlines():
-                for exp in data['global_regex']['regex']:
-                    parsed_line, matched = re.subn(exp['match'],
-                            exp['replace'],
-                        line.replace(
-                            data['global_regex']['string_replace']['match'],
-                            data['global_regex']['string_replace']['replace']))
-                    if matched:
-                        parsed_line = parsed_line + "\r\n"
+                inline_pattern = data['global_regex']['string_repl']['pattern']
+                inline_replace = data['global_regex']['string_repl']['replace']
+                line = line.replace(inline_pattern, inline_replace)
+                for exp in data['global_regex']['regexs']:
+                    parsed_line, num_subs = re.subn(
+                        exp['pattern'], exp['replace'], line)
+                    if num_subs:
+                        # use linefeed if defined in config, or default "/r/n"
+                        if(data['global_regex']['linefeed']):
+                            parsed_line = parsed_line
+                            + data['global_regex']['linefeed']
+                        else:
+                            parsed_line = parsed_line + '\r\n'
                         csv_string += parsed_line
                         break
         else:

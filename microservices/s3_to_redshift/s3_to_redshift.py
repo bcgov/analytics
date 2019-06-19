@@ -142,8 +142,9 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
         csv_string = ''
         # Perform regex pattern replacements according to config, if defined
         if 'global_regex' in data:
-            inline_pattern = data['global_regex']['string_repl']['pattern']
-            inline_replace = data['global_regex']['string_repl']['replace']
+            if(data['global_regex']['string_repl']):
+                inline_pattern = data['global_regex']['string_repl']['pattern']
+                inline_replace = data['global_regex']['string_repl']['replace']
             body_stringified = body.read()
             for line in body_stringified.splitlines():
                 if(data['global_regex']['string_repl']):

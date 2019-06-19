@@ -143,9 +143,10 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
             body_stringified = body.read()
             for line in body_stringified.splitlines():
                 for exp in data['global_regex']['regex']:
-                    parsed_line, matched = re.subn(data['global_regex']['regex'][exp]['match'],
-                        data['global_regex']['regex'][exp]['replace'],
-                        line.replace(data['global_regex']['string_replace']['match'],
+                    parsed_line, matched = re.subn(exp['match'],
+                            exp['replace'],
+                        line.replace(
+                            data['global_regex']['string_replace']['match'],
                             data['global_regex']['string_replace']['replace']))
                     if matched:
                         parsed_line = parsed_line + "\r\n"

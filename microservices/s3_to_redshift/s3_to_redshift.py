@@ -142,23 +142,25 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
         csv_string = ''
         # Perform regex pattern replacements according to config, if defined
         if 'global_regex' in data:
+            inline_pattern = data['global_regex']['string_repl']['pattern']
+            inline_replace = data['global_regex']['string_repl']['replace']
             body_stringified = body.read()
             for line in body_stringified.splitlines():
-                inline_pattern = data['global_regex']['string_repl']['pattern']
-                inline_replace = data['global_regex']['string_repl']['replace']
-                line = line.replace(inline_pattern, inline_replace)
+                if(data['global_regex']['string_repl']):
+                    line = line.replace(inline_pattern, inline_replace)
                 for exp in data['global_regex']['regexs']:
                     parsed_line, num_subs = re.subn(
                         exp['pattern'], exp['replace'], line)
                     if num_subs:
                         # use linefeed if defined in config, or default "/r/n"
                         if(data['global_regex']['linefeed']):
-                            parsed_line = parsed_line
-                            + data['global_regex']['linefeed']
+                            parsed_line = parsed_line + \
+                                data['global_regex']['linefeed']
                         else:
                             parsed_line = parsed_line + '\r\n'
                         csv_string += parsed_line
                         break
+            logger.info(object_summary.key + " parsed successfully")
         else:
             csv_string = body.read()
         # Check that the file decodes as UTF-8. If it fails move to bad and end

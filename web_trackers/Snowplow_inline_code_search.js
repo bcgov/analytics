@@ -18,7 +18,8 @@ window.snowplow('enableActivityTracking', 30, 30); // Ping every 30 seconds afte
 window.snowplow('enableLinkClickTracking');
 window.snowplow('trackPageView');
 // Change the 'Search term parameter' to what is being used on the site, generally it is q.
-var searchParameter = 'Search term parameter'
+//I have added the = to the parameter to make sure to only run this function with is finds that whole string.
+var searchParameter = 'q='
 if (window.location.search.indexOf(searchParameter) > -1) {
   window.snowplow('trackSiteSearch',
       getUrlParamArray(searchParameter,'')
@@ -28,6 +29,9 @@ if (window.location.search.indexOf(searchParameter) > -1) {
 function getUrlParamArray(param, defaultValue) {
     var vars = [];
     var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+        // Added the line below to make sure the key which is the string from the url has the same string in the searchParameter.
+        // So the key would be 'q' but after it will be 'q=' and that will allow the term to be sent.
+        key = key + '=';
         if ( key === param ) {
             vars.push(value);
         }

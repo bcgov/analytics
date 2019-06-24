@@ -319,10 +319,15 @@ for site_item in sites:
                     curs.execute(query)
                 # if the DB call fails, print error and place file in /bad
                 except psycopg2.Error as e:
-                    logger.error("Loading failed {0} index {1} for {2} with error:\n{3}".format(site_name, index, date_in_range, e.pgerror))
+                    logger.error("".join((
+                        "Loading failed {0} index {1} for {2} with error:\n{3}"
+                        .format(site_name, index, date_in_range, e.pgerror),
+                        " Object key: {0}".format(object_key.split('/')[-1]))))
                 else:
-                    logger.info("Loaded {0} index {1} for {2} successfully"
-                                .format(site_name, index, date_in_range))
+                    logger.info("".join((
+                        "Loaded {0} index {1} for {2}  successfully."
+                        .format(site_name, index, date_in_range),
+                        ' Object key: {0}'.format(object_key.split('/')[-1]))))
         # if we didn't add any new rows, set last_loaded_date to latest_date to
         # break the loop, otherwise, set it to the last loaded date
         if last_loaded_date == last_loaded(site_name):

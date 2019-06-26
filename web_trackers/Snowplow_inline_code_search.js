@@ -29,7 +29,6 @@ if (window.location.search.indexOf(searchParameter + '=') > -1) {
 function getUrlParamArray(param, defaultValue) {
     var vars = [];
     var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
-        // Added the line below to make sure the key which is the string from the url has the same string in the searchParameter.
         if ( key === param ) {
             vars.push(value);
         }

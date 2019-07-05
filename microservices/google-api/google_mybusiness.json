@@ -1,0 +1,11 @@
+{
+  "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
+  "dbtable": "google.my_business",
+  "locations": [
+    {
+      "name": "Service BC Locations",
+      "id": 5448030039,
+      "start_date_default": "2019-03-02"
+    }
+  ]
+}

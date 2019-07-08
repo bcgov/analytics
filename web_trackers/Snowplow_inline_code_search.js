@@ -1,4 +1,4 @@
-// <!-- Snowplow starts plowing - Standalone Search vA.2.10.2 -->
+// <!-- Snowplow starts plowing - Standalone Search vB.2.10.2 -->
 ;(function(p,l,o,w,i,n,g){if(!p[i]){p.GlobalSnowplowNamespace=p.GlobalSnowplowNamespace||[];
     p.GlobalSnowplowNamespace.push(i);p[i]=function(){(p[i].q=p[i].q||[]).push(arguments)
     };p[i].q=p[i].q||[];n=l.createElement(o);g=l.getElementsByTagName(o)[0];n.async=1;
@@ -19,7 +19,8 @@ window.snowplow('enableLinkClickTracking');
 window.snowplow('trackPageView');
 // Change the 'Search term parameter' to what is being used on the site, generally it is q.
 var searchParameter = 'Search term parameter'
-if (window.location.search.indexOf(searchParameter) > -1) {
+// This checks for the search parameter that was put in ablove along with an equal, for example q= or s=
+if (window.location.search.indexOf(searchParameter + '=') > -1) {
   window.snowplow('trackSiteSearch',
       getUrlParamArray(searchParameter,'')
   );

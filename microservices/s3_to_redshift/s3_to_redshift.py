@@ -135,13 +135,14 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
             logger.debug("File failed already. Skip.")
             continue
         logger.debug("File not already processed. Proceed.")
-
         obj = client.get_object(Bucket=bucket, Key=object_summary.key)
         body = obj['Body']
         # Create an object to hold the data while parsing
         csv_string = ''
         # Perform regex pattern replacements according to config, if defined
         if 'global_regex' in data:
+            linefeed= ''
+            parsed_list = []
             if(data['global_regex']['string_repl']):
                 inline_pattern = data['global_regex']['string_repl']['pattern']
                 inline_replace = data['global_regex']['string_repl']['replace']
@@ -155,12 +156,11 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
                     if num_subs:
                         # use linefeed if defined in config, or default "/r/n"
                         if(data['global_regex']['linefeed']):
-                            parsed_line = parsed_line + \
-                                data['global_regex']['linefeed']
+                            linefeed = data['global_regex']['linefeed']
                         else:
-                            parsed_line = parsed_line + '\r\n'
-                        csv_string += parsed_line
-                        break
+                            linefeed = '\r\n'
+                        parsed_list.append(parsed_line)
+            csv_string = linefeed.join(parsed_list)
             logger.info(object_summary.key + " parsed successfully")
         else:
             csv_string = body.read()

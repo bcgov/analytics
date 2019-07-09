@@ -51,8 +51,11 @@ import psycopg2
 import argparse
 import httplib2
 import pandas as pd
+import dateutil.relativedelta
 
 from io import BytesIO
+import datetime
+from datetime import timedelta
 from apiclient.discovery import build
 from oauth2client import tools
 from oauth2client.file import Storage
@@ -175,13 +178,13 @@ service = build(
 
 # Check for a last loaded date in Redshift
 # Load the Redshift connection
-def last_loaded(schema_name, location_id):
+def last_loaded(dbtable, location_id):
     con = psycopg2.connect(conn_string)
     cursor = con.cursor()
     # query the latest date for any search data on this site loaded to redshift
-    query = ("SELECT MAX(DATE) "
-             "FROM {0}.google_locations "
-             "WHERE location_id = '{1}'").format(schema_name, location_id)
+    query = ("SELECT MAX(Date) "
+             "FROM {0} "
+             "WHERE location_id = '{1}'").format(dbtable, location_id)
     cursor.execute(query)
     # get the last loaded date
     last_loaded_date = (cursor.fetchall())[0][0]
@@ -226,11 +229,12 @@ for loc in config_locations:
 # iterate over ever location of every account
 for account in validated_accounts:
 
+    dbtable = config_dbtable
     # Create a dataframe with dates as rows and columns according to the table
     df = pd.DataFrame()
     account_uri = account['uri']
-    locations = \
-        service.accounts().locations().list(parent=account_uri).execute()
+    locations = (
+        service.accounts().locations().list(parent=account_uri).execute())
     # we will handle each location separately
     for loc in locations['locations']:
         # substring replacement for location names from config file
@@ -240,8 +244,48 @@ for account in validated_accounts:
         # encode as ASCII for dataframe
         location_uri = loc['name'].encode('ascii', 'ignore')
         location_name = loc['locationName'].replace(find_in_name, rep_in_name)
-        start_time = account['start_date'] + 'T00:00:00Z'
-        end_time = account['end_date'] + 'T00:00:00Z'
+
+        # if a start_date is defined in the config file, use that date
+        start_date = account['start_date']
+        if start_date == '':
+            # The earliest available data is from 18 months ago from the
+            # query day. Adding a day accounts for possible timezone offset.
+            # timedelta does not support months, dateutil.relativedelta does.
+            # reference: https://stackoverflow.com/a/14459459/5431461
+            start_date = (
+                datetime.datetime.today().date()
+                - dateutil.relativedelta.relativedelta(months=18)
+                + timedelta(days=1)
+                ).isoformat()
+
+        # query RedShift to see if there is a date already loaded
+        last_loaded_date = last_loaded(config_dbtable, loc['name'])
+        if last_loaded_date is not None:
+            logger.info("first time loading {}".format(account['name']))
+
+        # If it is loaded with some data for this ID, use that date plus
+        # one day as the start_date.
+        if (last_loaded_date is not None
+                and last_loaded_date.isoformat() >= start_date):
+            start_date = last_loaded_date + timedelta(days=1)
+            start_date = start_date.isoformat()
+
+        start_time = start_date + 'T00:00:00Z'
+
+        # if an end_date is defined in the config file, use that date
+        end_date = account['end_date']
+        if end_date == '':
+            # The most recent data available is from two days ago
+            end_date = (
+                datetime.datetime.today().date() - timedelta(days=2)
+                ).isoformat()
+
+        end_time = end_date + 'T00:00:00Z'
+
+        # if start and end times are same, then there's no new data
+        if start_time == end_time:
+            logger.info("Redshift already contains the latest avaialble data.")
+            continue
 
         # the API call must construct each metric request in a list of dicts
         metricRequests = []
@@ -272,7 +316,7 @@ for account in validated_accounts:
             service.accounts().locations().\
             reportInsights(body=bodyvar, name=account_uri).execute()
 
-        print(json.dumps(reportInsights, indent=2) + '\n')
+        # (json.dumps(reportInsights, indent=2) + '\n')
 
         # We constrain API calls to one location at a time, so
         # there is only one element in the locationMetrics list:
@@ -286,8 +330,10 @@ for account in validated_accounts:
             for results in dimVals:
                 # just get the YYYY-MM-DD day; dropping the T07:00:00Z
                 day = results['timeDimension']['timeRange']['startTime'][:10]
+                client = account['client_shortname']
                 value = results['value'] if 'value' in results else 0
                 row = pd.DataFrame([{'date': day,
+                                     'client': client,
                                      'location': location_name,
                                      'location_id': location_uri,
                                      metric_name: int(value)}])
@@ -300,7 +346,7 @@ for account in validated_accounts:
 
         # collapse rows on the groupers columns, which will remove all NaNs.
         # reference: https://stackoverflow.com/a/36746793/5431461
-        groupers = ['date', 'location', 'location_id']
+        groupers = ['date', 'client', 'location', 'location_id']
         groupees = [e.lower() for e in config_metrics]
         df = df.groupby(groupers).apply(lambda g: g[groupees].ffill().iloc[-1])
 
@@ -318,8 +364,8 @@ for account in validated_accounts:
 
         outfile = 'gmb_{0}_{1}_{2}.csv'.format(
             location_name.replace(' ', '-'),
-            account['start_date'],
-            account['end_date'])
+            start_date,
+            end_date)
         object_key = object_key_path + outfile
 
         resource.Bucket(config_bucket).put_object(
@@ -330,6 +376,39 @@ for account in validated_accounts:
         logger.debug('OBJECT LOADED ON: {0} \nOBJECT SIZE: {1}'
                      .format(object_summary.last_modified,
                              object_summary.size))
+
+        # Prepare the Redshift COPY command.
+        query = (
+            "copy " + config_dbtable + " FROM 's3://" + config_bucket
+            + "/" + object_key + "' CREDENTIALS 'aws_access_key_id="
+            + os.environ['AWS_ACCESS_KEY_ID'] + ";aws_secret_access_key="
+            + os.environ['AWS_SECRET_ACCESS_KEY']
+            + ("' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER"
+                + " '|' NULL AS '-' ESCAPE;"))
+        logquery = (
+            "copy " + config_dbtable + " FROM 's3://" + config_bucket
+            + "/" + object_key + "' CREDENTIALS 'aws_access_key_id="
+            + 'AWS_ACCESS_KEY_ID' + ";aws_secret_access_key="
+            + 'AWS_SECRET_ACCESS_KEY' + (
+                "' IGNOREHEADER AS 1 MAXERROR"
+                + " AS 0 DELIMITER '|' NULL AS '-' ESCAPE;"))
+        logger.debug(logquery)
+
+        # Connect to Redshift and execute the query.
+        with psycopg2.connect(conn_string) as conn:
+            with conn.cursor() as curs:
+                try:
+                    curs.execute(query)
+                except psycopg2.Error as e:
+                    logger.error("".join((
+                        "Loading failed {0} with error:\n{1}"
+                        .format(location_name, e.pgerror),
+                        " Object key: {0}".format(object_key.split('/')[-1]))))
+                else:
+                    logger.info("".join((
+                        "Loaded {0} successfully."
+                        .format(location_name),
+                        ' Object key: {0}'.format(object_key.split('/')[-1]))))
 
         # END EARLY WHILE TESTING
         sys.exit(1)

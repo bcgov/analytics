@@ -1,6 +1,6 @@
 {
   "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
-  "dbtable": "google.my_business",
+  "dbtable": "google.locations",
   "metrics": [
     "VIEWS_SEARCH",
     "VIEWS_MAPS",
@@ -24,8 +24,8 @@
         ""
       ],
       "id": 5448030039,
-      "start_date": "2018-01-10",
-      "end_date": "2018-01-15"
+      "start_date": "",
+      "end_date": ""
     }
   ]
 }

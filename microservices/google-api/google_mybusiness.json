@@ -1,11 +1,31 @@
 {
   "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
   "dbtable": "google.my_business",
+  "metrics": [
+    "VIEWS_SEARCH",
+    "VIEWS_MAPS",
+    "QUERIES_INDIRECT",
+    "QUERIES_DIRECT",
+    "PHOTOS_VIEWS_MERCHANT",
+    "PHOTOS_VIEWS_CUSTOMERS",
+    "PHOTOS_COUNT_MERCHANT",
+    "PHOTOS_COUNT_CUSTOMERS",
+    "LOCAL_POST_VIEWS_SEARCH",
+    "ACTIONS_WEBSITE",
+    "ACTIONS_PHONE",
+    "ACTIONS_DRIVING_DIRECTIONS"
+  ],
   "locations": [
     {
+      "client_shortname": "servicebc",
       "name": "Service BC Locations",
+      "names_replacement": [
+        "Service BC Centre ",
+        ""
+      ],
       "id": 5448030039,
-      "start_date_default": "2019-03-02"
+      "start_date": "2018-01-10",
+      "end_date": "2018-01-15"
     }
   ]
 }

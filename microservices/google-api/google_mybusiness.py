@@ -25,34 +25,39 @@
 #               : Create a new project at
 #               : https://console.developers.google.com/projectcreate
 #               :
-#               : Click "Create Credentials" selecting:
+#               : Click 'Create Credentials' selecting:
 #               :   Click on the small text to select that you want to create
-#               :   a "client id". You will have to configure a consent screen.
+#               :   a 'client id'. You will have to configure a consent screen.
 #               :   You must provide an Application name, and
-#               :   under "Scopes for Google APIs" add the scopes:
-#               :   "../auth/business.manage".
+#               :   under 'Scopes for Google APIs' add the scopes:
+#               :   '../auth/business.manage'.
 #               :
 #               :   After you save, you will have to pick an application type.
 #               :   Choose Other, and provide a name for this OAuth client ID.
 #               :
 #               :   Download the JSON file and place it in your working
-#               :   directory as "credentials_mybusiness.json"
+#               :   directory as 'credentials_mybusiness.json'
 #               :
 #               :   When you first run it, it will ask you do do an OAUTH
-#               :   validation, which will create a file "mybusiness.dat",
+#               :   validation, which will create a file 'mybusiness.dat',
 #               :   saving that auhtorization.
 
 import os
 import sys
 import json
+import boto3
 import logging
+import psycopg2
 import argparse
 import httplib2
+import pandas as pd
 
-from oauth2client.client import flow_from_clientsecrets
-from oauth2client.file import Storage
-from oauth2client import tools
+from io import BytesIO
 from apiclient.discovery import build
+from oauth2client import tools
+from oauth2client.file import Storage
+from oauth2client.client import flow_from_clientsecrets
+
 
 # Ctrl+C
 def signal_handler(signal, frame):
@@ -68,16 +73,16 @@ logger.setLevel(logging.DEBUG)
 # This will be emailed when the cron task runs; formatted to give messages only
 handler = logging.StreamHandler()
 handler.setLevel(logging.INFO)
-formatter = logging.Formatter("%(message)s")
+formatter = logging.Formatter('%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 # create file handler for logs at the INFO level
 log_filename = '{0}'.format(os.path.basename(__file__).replace('.py', '.log'))
-handler = logging.FileHandler(os.path.join('logs', log_filename), "a",
-                              encoding=None, delay="true")
+handler = logging.FileHandler(os.path.join('logs', log_filename), 'a',
+                              encoding=None, delay='true')
 handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter("%(levelname)s:%(name)s:%(asctime)s:%(message)s")
+formatter = logging.Formatter('%(levelname)s:%(name)s:%(asctime)s:%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
@@ -102,9 +107,23 @@ CONFIG = flags.conf
 with open(CONFIG) as f:
     config = json.load(f)
 
-bucket = config['bucket']
-dbtable = config['dbtable']
-locations = config['locations']
+config_bucket = config['bucket']
+config_dbtable = config['dbtable']
+config_metrics = config['metrics']
+config_locations = config['locations']
+
+
+# set up the S3 resource
+client = boto3.client('s3')
+resource = boto3.resource('s3')
+
+
+# set up the Redshift connection
+conn_string = ("dbname='snowplow' "
+               "host='snowplow-ca-bc-gov-main-redshi-resredshiftcluster-"
+               "13nmjtt8tcok7.c8s7belbz4fo.ca-central-1.redshift.amazonaws.com"
+               "' port='5439' user='microservice' password="
+               + os.environ['pgpass'])
 
 
 # Setup OAuth 2.0 flow for the Google My Business API
@@ -154,31 +173,163 @@ service = build(
 # site_list_response = service.sites().list().execute()
 
 
-# Get the list of accounts the authenticated user has access to
-# skipping the first one, since it describes the GDX Analytics personal account
+# Check for a last loaded date in Redshift
+# Load the Redshift connection
+def last_loaded(schema_name, location_id):
+    con = psycopg2.connect(conn_string)
+    cursor = con.cursor()
+    # query the latest date for any search data on this site loaded to redshift
+    query = ("SELECT MAX(DATE) "
+             "FROM {0}.google_locations "
+             "WHERE location_id = '{1}'").format(schema_name, location_id)
+    cursor.execute(query)
+    # get the last loaded date
+    last_loaded_date = (cursor.fetchall())[0][0]
+    # close the redshift connection
+    cursor.close()
+    con.commit()
+    con.close()
+    return last_loaded_date
+
+
+# Location Check
+
+# Get the list of accounts that the Google account being used to access
+# the My Business API has rights to read location insights from
+# (ignoring the first one, since it is the 'self' reference account).
 accounts = service.accounts().list().execute()['accounts'][1:]
 
-for loc in locations:
-    for i in accounts:
-        # validate match between account id and config file id
-        if i["accountNumber"] == str(loc["id"]):
-            account_uri = i["name"]
+# check that all locations defined in the configuration file are available
+# to the authencitad account being used to access the MyBusiness API, and
+# append those accounts information into a 'validated_locations' list.
+validated_accounts = []
+for loc in config_locations:
+    try:
+        validated_accounts.append(
+            next({
+                'uri': item['name'],
+                'name': item['accountName'],
+                'id': item['accountNumber'],
+                'client_shortname': loc['client_shortname'],
+                'start_date': loc['start_date'],
+                'end_date': loc['end_date'],
+                'names_replacement': loc['names_replacement']}
+                 for item
+                 in accounts
+                 if item['accountNumber'] == str(loc['id'])))
+    except StopIteration:
+        logger.warning(
+            'No API access to {0}. Excluding from insights query.'
+            .format(loc['name']))
+        continue
 
-            # Get the list of locations under this account
-            locationsList = service.accounts().locations().list(parent=account_uri).execute()
-            # print(json.dumps(locationsList, indent=2) + "\n")
+# iterate over ever location of every account
+for account in validated_accounts:
 
-            # get an insights report for each location under the list of locations
-            for i in locationsList["locations"]:
-                location = i["name"]
+    # Create a dataframe with dates as rows and columns according to the table
+    df = pd.DataFrame()
+    account_uri = account['uri']
+    locations = \
+        service.accounts().locations().list(parent=account_uri).execute()
+    # we will handle each location separately
+    for loc in locations['locations']:
+        # substring replacement for location names from config file
+        find_in_name = account['names_replacement'][0]
+        rep_in_name = account['names_replacement'][1]
 
-                # # get the location and print its details
-                # locationsGet = service.accounts().locations().get(name=location).execute()
-                # print(json.dumps(locationsGet, indent=2) + "\n")
+        # encode as ASCII for dataframe
+        location_uri = loc['name'].encode('ascii', 'ignore')
+        location_name = loc['locationName'].replace(find_in_name, rep_in_name)
+        start_time = account['start_date'] + 'T00:00:00Z'
+        end_time = account['end_date'] + 'T00:00:00Z'
 
-                # get the insights on this location and print
-                reportInsights = service.accounts().locations().localPosts().reportInsights(name=location).execute()
-                print(json.dumps(reportInsights, indent=2) + "\n")
+        # the API call must construct each metric request in a list of dicts
+        metricRequests = []
+        for metric in config_metrics:
+            metricRequests.append(
+                {
+                    'metric': metric,
+                    'options': 'AGGREGATED_DAILY'
+                    }
+                )
 
-                # ENDING EARLY WHILE TESTING
-                sys.exit(1)
+        bodyvar = {
+            'locationNames': ['{0}'.format(location_uri)],
+            'basicRequest': {
+                # https://developers.google.com/my-business/reference/rest/v4/Metric
+                'metricRequests': metricRequests,
+                # https://developers.google.com/my-business/reference/rest/v4/BasicMetricsRequest
+                # The maximum range is 18 months from the request date.
+                'timeRange': {
+                    'startTime': '{0}'.format(start_time),
+                    'endTime': '{0}'.format(end_time)
+                    }
+                }
+            }
+
+        # retrieves the request for this location.
+        reportInsights = \
+            service.accounts().locations().\
+            reportInsights(body=bodyvar, name=account_uri).execute()
+
+        print(json.dumps(reportInsights, indent=2) + '\n')
+
+        # We constrain API calls to one location at a time, so
+        # there is only one element in the locationMetrics list:
+        metrics = reportInsights['locationMetrics'][0]['metricValues']
+
+        for metric in metrics:
+            metric_name = metric['metric'].lower().encode('ascii', 'ignore')
+            # iterate on the dimensional values for this metric.
+
+            dimVals = metric['dimensionalValues']
+            for results in dimVals:
+                # just get the YYYY-MM-DD day; dropping the T07:00:00Z
+                day = results['timeDimension']['timeRange']['startTime'][:10]
+                value = results['value'] if 'value' in results else 0
+                row = pd.DataFrame([{'date': day,
+                                     'location': location_name,
+                                     'location_id': location_uri,
+                                     metric_name: int(value)}])
+                # Since we are growing both rows and columns, we must concat
+                # the dataframe with the new row. This will create NaN values.
+                df = pd.concat([df, row], sort=False)
+
+        # sort the dataframe by date
+        df.sort_values('date')
+
+        # collapse rows on the groupers columns, which will remove all NaNs.
+        # reference: https://stackoverflow.com/a/36746793/5431461
+        groupers = ['date', 'location', 'location_id']
+        groupees = [e.lower() for e in config_metrics]
+        df = df.groupby(groupers).apply(lambda g: g[groupees].ffill().iloc[-1])
+
+        # an artifact of the NaNs is that dtypes are float64.
+        # These can be downcast to integers, as there is no need for a decimal.
+        df = df.astype('int64')
+
+        # prepare csv buffer
+        csv_buffer = BytesIO()
+        df.to_csv(csv_buffer, index=True, header=True, sep='|')
+
+        # Set up the S3 path to write the csv buffer to
+        object_key_path = 'client/google_mybusiness_{}/'.format(
+            account['client_shortname'])
+
+        outfile = 'gmb_{0}_{1}_{2}.csv'.format(
+            location_name.replace(' ', '-'),
+            account['start_date'],
+            account['end_date'])
+        object_key = object_key_path + outfile
+
+        resource.Bucket(config_bucket).put_object(
+            Key=object_key,
+            Body=csv_buffer.getvalue())
+        logger.debug('PUT_OBJECT: {0}:{1}'.format(outfile, config_bucket))
+        object_summary = resource.ObjectSummary(config_bucket, object_key)
+        logger.debug('OBJECT LOADED ON: {0} \nOBJECT SIZE: {1}'
+                     .format(object_summary.last_modified,
+                             object_summary.size))
+
+        # END EARLY WHILE TESTING
+        sys.exit(1)

@@ -40,3 +40,20 @@ A sample result will appear as (the following is not real data):
  - event_id: 07114185-a0ff-46ee-8a25-6d3b8a475dd0
  - event_name: page_view
 ```
+### [elasticsearch_pageviews.py](./elasticsearch_pageviews.py)
+Counts pageviews from 1 hour previous to the current time for Elasticsearch
+and snowplow.
+
+Configuration file should contain line separated list of domains to query from Elasticsearch index and endpoint specified.
+
+Example Usage:
+```
+python3 elasticsearch_pageviews.py --config <config_file> --username $ES_USER --password $ES_PASS --endpoint $ES_ENDPOINT --index $ES_INDEX
+```
+A sample result will appear as (the following is not real data):
+```
+2019-07-15 14:54:40,181:[INFO]: intranet.gov.bc.ca page views successfully queried
+Domain:  intranet.gov.bc.ca  Page Views:  4260
+2019-07-15 14:54:40,362:[INFO]: www.env.gov.bc.ca page views successfully queried
+Domain:  www.env.gov.bc.ca  Page Views:  4154
+```

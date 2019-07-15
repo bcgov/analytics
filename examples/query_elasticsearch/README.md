@@ -51,7 +51,9 @@ Example Usage:
 python3 elasticsearch_pageviews.py --config <config_file> --username $ES_USER --password $ES_PASS --endpoint $ES_ENDPOINT --index $ES_INDEX
 ```
 A sample result will appear as (the following is not real data):
+```
 2019-07-15 14:54:40,181:[INFO]: intranet.gov.bc.ca page views successfully queried
 Domain:  intranet.gov.bc.ca  Page Views:  4260
 2019-07-15 14:54:40,362:[INFO]: www.env.gov.bc.ca page views successfully queried
 Domain:  www.env.gov.bc.ca  Page Views:  4154
+```

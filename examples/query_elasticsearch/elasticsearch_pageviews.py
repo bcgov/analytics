@@ -4,8 +4,13 @@
 # Description       : Counts page views from 1 Hour previous for Elasticsearch
 #                     and Snowplow.
 #
+#                     Configuration file should contain line separated list of
+#                     domains to query from Elasticsearch index and
+#                     endpoint specified.
+#
 # Requirements      : Install the following python packages to allow
-#                     querying the elasticsearch endpoint
+#                     querying the elasticsearch endpoint, credentials, and
+#                     index for regular use:
 #
 #                   : elasticsearch-dsl>=6.0.0,<7.0.0
 #                   : elasticsearch>=6.0.0,<7.0.0
@@ -15,11 +20,14 @@
 #
 #                   : export ES_USER='<<ElasticSearch_Username>>'
 #                   : export ES_PASS='<<ElasticSearch_Password>>'
+#                   : export ES_ENDPOINT='<<ElasticSearch_Endpoint>>'
+#                   : export ES_INDEX='<<ElasticSearch_Index>>'
 #
 # Usage             : To query a list of domains, run:
 #
-#                   : python3 elasticsearch_pageviews.py -c domainlist.txt
-#                   :   -u ES_USER -p ES_PASS
+#                   : python3 elasticsearch_pageviews.py --config domainlist.txt
+#                   :   --username ES_USER --password ES_PASS --endpoint ES_ENDPOINT
+#                       --index ES_INDEX
 #
 #                   : where 'domainlist.txt' is a text file containing the
 #                   : newline separated list of domains you wish to query.
@@ -48,6 +56,8 @@ parser.add_argument('-e', '--endtime', help='End time.')
 parser.add_argument('-u', '--username', help='Username.', required=True)
 parser.add_argument('-p', '--password', help='Password.', required=True)
 parser.add_argument('-d', '--debug', help='Debug', action="store_true")
+parser.add_argument('-i', '--index', help='Index', required=True)
+parser.add_argument('-ep', '--endpoint', help='Endpoint', required=True)
 args = parser.parse_args()
 
 
@@ -86,13 +96,11 @@ else:
 
 http_user = args.username
 http_pass = args.password
-endpoint = "https://ca-bc-gov-elasticsearch-1.analytics.snplow.net"
+endpoint = args.endpoint
+index = args.index
 
 client = Elasticsearch(endpoint, http_auth=(http_user, http_pass))
 logger.debug('Elastic search object: ', client)
-
-good_index = 'ca-bc-gov-main-snowplow-good-query-alias'
-bad_index = 'ca-bc-gov-main-snowplow-bad-query-alias'
 
 for domain in domains:
     # this query parameter looks at the last hour (now-60) where the Page URL
@@ -103,7 +111,7 @@ for domain in domains:
              Q('range', derived_tstamp={'lt': endtime})
 
     try:
-        s = Search(using=client, index=good_index).filter(params)
+        s = Search(using=client, index=index).filter(params)
     except Exception as e:
         logger.debug(e)
     # we actually don't need to aggregate; the query filter itself

@@ -111,7 +111,6 @@ IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;\n
 """.format(dbtable, b_name, batchfile, aws_key, aws_secret_key)
     return query
 
-
 for object_summary in my_bucket.objects.filter(Prefix=source + "/"
                                                + directory + "/"):
     if re.search(doc + '$', object_summary.key):
@@ -139,7 +138,52 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/"
 
         obj = client.get_object(Bucket=bucket, Key=object_summary.key)
         body = obj['Body']
-        csv_string = body.read().decode('utf-8')
+        # Create an object to hold the data while parsing
+        csv_string = ''
+        # Perform regex pattern replacements according to config, if defined
+        if 'global_regex' in data:
+            if(data['global_regex']['string_repl']):
+                inline_pattern = data['global_regex']['string_repl']['pattern']
+                inline_replace = data['global_regex']['string_repl']['replace']
+            body_stringified = body.read()
+            for line in body_stringified.splitlines():
+                if(data['global_regex']['string_repl']):
+                    line = line.replace(inline_pattern, inline_replace)
+                for exp in data['global_regex']['regexs']:
+                    parsed_line, num_subs = re.subn(
+                        exp['pattern'], exp['replace'], line)
+                    if num_subs:
+                        # use linefeed if defined in config, or default "/r/n"
+                        if(data['global_regex']['linefeed']):
+                            parsed_line = parsed_line + \
+                                data['global_regex']['linefeed']
+                        else:
+                            parsed_line = parsed_line + '\r\n'
+                        csv_string += parsed_line
+                        break
+            logger.info(object_summary.key + " parsed successfully")
+        else:
+            csv_string = body.read()
+        # Check that the file decodes as UTF-8. If it fails move to bad and end
+        try:
+            csv_string = csv_string.decode('utf-8')
+        except UnicodeDecodeError as e:
+            e_object = e.object.splitlines()
+            logger.exception(
+                ''.join((
+                    "Decoding UTF-8 failed for file {0}\n"
+                    .format(object_summary.key),
+                    "The input file stopped parsing after line {0}:\n{1}\n"
+                    .format(len(e_object), e_object[-1]),
+                    "Keying to badfile and skipping.\n")))
+            try:
+                client.copy_object(
+                    Bucket="sp-ca-bc-gov-131565110619-12-microservices",
+                    CopySource="sp-ca-bc-gov-131565110619-12-microservices/"
+                    + object_summary.key, Key=badfile)
+            except Exception as e:
+                logger.exception("S3 transfer failed.\n{0}".format(e.message))
+            continue
 
         # Check for an empty file. If it's empty, accept it as good and move on
         try:
@@ -200,7 +244,6 @@ BEGIN;
 -- Clean up from last run if necessary
 DROP TABLE IF EXISTS {0}_scratch;
 DROP TABLE IF EXISTS {0}_old;
-
 -- Create scratch table to copy new data into
 CREATE TABLE {0}_scratch (LIKE {0});
 ALTER TABLE {0}_scratch OWNER TO microservice;

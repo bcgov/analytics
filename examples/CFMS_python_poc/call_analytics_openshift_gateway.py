@@ -35,22 +35,22 @@ hostname = sys.argv[1]
 bcgov_hosts = ['caps.pathfinder.bcgov',
                'test-caps.pathfinder.bcgov',
                'dev-caps.pathfinder.bcgov']
+hostport = False
 
 # hostport is only used if the listener app is running on 0.0.0.0.
-# do not specify a hostport if you a connecting to one of the Prod/Test/Dev routes
+# do not specify a hostport if you a connecting to one of the bcgov_hosts
 if hostname not in bcgov_hosts:
-    if len(sys.argv) is 3:
+    if len(sys.argv) == 3:
         hostport = sys.argv[2]
+
 
 # make the POST call that contains the event data
 def post_event(json_event):
     # Make the connection
-    try:
-        # local connections use an HTTPConnection
-        conn = http.client.HTTPConnection(hostname,port=hostport)
-    except NameError:
-        # connections to the OpenShift router use a secure HTTPSConnection
-        conn = http.client.HTTPSConnection(hostname,context=ssl._create_unverified_context())
+    conn = http.client.HTTPSConnection(
+        hostname, context=ssl._create_unverified_context())
+    if hostport:
+        conn.port = hostport
 
     # Prepare the headers
     headers = {'Content-type': 'application/json'}

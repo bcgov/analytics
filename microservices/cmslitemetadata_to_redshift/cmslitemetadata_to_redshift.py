@@ -140,8 +140,18 @@ resource = boto3.resource('s3')  # high-level object-oriented API
 my_bucket = resource.Bucket(bucket)  # subsitute this for your s3 bucket name.
 
 # prep database call to pull the batch file into redshift
-conn_string = "dbname='snowplow' host='snowplow-ca-bc-gov-main-redshi-resredshiftcluster-13nmjtt8tcok7.c8s7belbz4fo.ca-central-1.redshift.amazonaws.com' port='5439' user='microservice' password=" + os.environ['pgpass']
+# host = 'snowplow-ca-bc-gov-main-redshi-resredshiftcluster-13nmjtt8tcok7.\
+# c8s7belbz4fo.ca-central-1.redshift.amazonaws.com'
+host = 'localhost'
+conn_string = """
+dbname='{dbname}' host='{host}' port='{port}' user='{user}' password={password}
+""".format(dbname='snowplow',
+           host=host,
+           port='5439',
+           user='microservice',
+           password=os.environ['pgpass'])
 
+# TODO: If truncate is true, pick only the most recent
 # We will search through all objects in the bucket whose keys begin: source/directory/
 for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory + "/"):
     # Look for objects that match the filename pattern
@@ -225,6 +235,9 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory +
 
         dictionary_dfs = {}  # keep the dictionaries in storage
         # loop starts at index -1 to process the main metadata table.
+
+        # build an aggregate query which will be used to make one transaction
+        copy_queries = {}
         for i in range(-1, len(columns_lookup)*2):
             if (i == -1):
                 column = "metadata"
@@ -269,35 +282,65 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory +
             # output the the dataframe as a csv
             to_s3(bucket, batchfile, dbtable + '.csv', df_new, columnlist, key)
 
-            # NOTE: batchfile is replaced by: batchfile + "/" + dbtable + ".csv" below
-            # if truncate is set to true, truncate the db before loading
-            if (truncate):
-                truncate_str = "TRUNCATE " + dbtable + "; "
-            else:
-                truncate_str = ""
+            copy_query_unformatted = "".join((
+                "COPY {dbtable} FROM ",
+                "'s3://{my_bucket_name}/{batchfile}/{dbtable}.csv' ",
+                "CREDENTIALS 'aws_access_key_id={aws_access_key_id};",
+                "aws_secret_access_key={aws_secret_access_key}' ",
+                "IGNOREHEADER AS 1 MAXERROR AS 0 ",
+                "DELIMITER '	' NULL AS '-' ESCAPE;")
+                )
 
-            query = "SET search_path TO " + dbschema + ";" + truncate_str + "copy " + dbtable + " FROM 's3://" + my_bucket.name + "/" + batchfile + "/" + dbtable + ".csv" + "' CREDENTIALS 'aws_access_key_id=" + os.environ['AWS_ACCESS_KEY_ID'] + ";aws_secret_access_key=" + os.environ['AWS_SECRET_ACCESS_KEY'] + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '	' NULL AS '-' ESCAPE;"
-            logquery = "SET search_path TO " + dbschema + ";" + truncate_str + "copy " + dbtable + " FROM 's3://" + my_bucket.name + "/" + batchfile + "/" + dbtable + ".csv" + "' CREDENTIALS 'aws_access_key_id=" + 'AWS_ACCESS_KEY_ID' + ";aws_secret_access_key=" + 'AWS_SECRET_ACCESS_KEY' + "' IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '	' NULL AS '-' ESCAPE;"
+            copy_queries[dbtable] = copy_query_unformatted.format(
+                dbtable=dbtable,
+                my_bucket_name=my_bucket.name,
+                batchfile=batchfile,
+                aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
 
-            logger.debug(logquery)
-            with psycopg2.connect(conn_string) as conn:
-                with conn.cursor() as curs:
-                    try:
-                        curs.execute(query)
-                    except psycopg2.Error as e:  # if the DB call fails, print error and place file in /bad
-                        logger.error("Loading {0} from {1} failed with Postgres error:\n{2}".format(dbtable, object_summary.key, e.pgerror))
-                        outfile = badfile
-                    else:  # if the DB call succeed, place file in /good
-                        logger.info("Loaded {0} from {1} successfully".format(dbtable, object_summary.key))
-                        try:  # if any of the csv's generated are bad, the file must output to /bad/
-                            outfile
-                        except NameError:
-                            outfile = goodfile  # the case where outfile is not yet defined (first case)
-                        else:
-                            if outfile is not badfile:  # if outfile is already a badfile, never assign it as a goodfile
-                                outfile = goodfile
+        # TODO: prepare the aggregate query
+        # prep the single-transaction this_query
+        query = 'BEGIN; SET search_path TO {dbschema};'.format(
+            dbschema=dbschema)
+        for table, copy_query in copy_queries.items():
+            query = query.join((
+                'DROP TABLE IF EXISTS {table}_scratch;',
+                'DROP TABLE IF EXISTS {table}_old;',
+                'CREATE TABLE {table}_scratch (LIKE {table});',
+                'ALTER TABLE {table}_scratch OWNER TO microservice;',
+                'GRANT SELECT ON {table}_scratch TO looker;')).format(
+                    table=table)
+            query = query + copy_query
+            query = ''.join((
+                'ALTER TABLE {table} RENAME TO {table}_old;',
+                'ALTER TABLE {table}_scratch RENAME TO {table};',
+                'DROP TABLE {table}_old;')).format(
+                    table=table)
+        query = query + 'COMMIT;'
+        logquery = (
+            query.replace
+            (os.environ['AWS_ACCESS_KEY_ID'], 'AWS_ACCESS_KEY_ID').replace
+            (os.environ['AWS_SECRET_ACCESS_KEY'], 'AWS_SECRET_ACCESS_KEY'))
 
-            client.copy_object(Bucket="sp-ca-bc-gov-131565110619-12-microservices", CopySource="sp-ca-bc-gov-131565110619-12-microservices/"+object_summary.key, Key=outfile)
+        logger.debug(logquery)
+        with psycopg2.connect(conn_string) as conn:
+            with conn.cursor() as curs:
+                try:
+                    curs.execute(query)
+                except psycopg2.Error as e:
+                    logger.exception("Executing transaction for {0} failed."
+                                     .format(object_summary.key))
+                    outfile = badfile
+                else:  # if the DB call succeed, place file in /good
+                    logger.info("Executing transaction {0} succeeded."
+                                .format(object_summary.key))
+                    outfile = goodfile
+
+        # Copies the uploaded file from client into processed/good or /bad
+        client.copy_object(
+            Bucket="sp-ca-bc-gov-131565110619-12-microservices",
+            CopySource="sp-ca-bc-gov-131565110619-12-microservices/{0}".format(
+                object_summary.key), Key=outfile)
 
 # now we run the single-time load on the cmslite.themes
 query = """

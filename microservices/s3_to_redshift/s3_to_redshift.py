@@ -16,6 +16,7 @@
 #
 
 import boto3  # s3 access
+from botocore.exceptions import ClientError
 import pandas as pd  # data processing
 import re  # regular expressions
 from io import StringIO
@@ -110,6 +111,41 @@ CREDENTIALS 'aws_access_key_id={3};aws_secret_access_key={4}'\n\
 IGNOREHEADER AS 1 MAXERROR AS 0 DELIMITER '|' NULL AS '-' ESCAPE;\n
 """.format(dbtable, b_name, batchfile, aws_key, aws_secret_key)
     return query
+
+
+# TODO if truncate=true then we should only bother to process the latest
+# uploaded file, otherwise we should process all files found here
+if truncate:
+    latest_object = None
+    for object_summary in my_bucket.objects.filter(Prefix=source + "/"
+                                                   + directory + "/"):
+        key = object_summary.key
+        if re.search(doc + '$', key):
+            # Check to see if the file has been processed already
+            filename = key[-(key[::-1].index('/')):]
+            goodfile = destination + "/good/" + key
+            badfile = destination + "/bad/" + key
+            try:
+                client.head_object(Bucket=bucket, Key=goodfile)
+            except ClientError:
+                pass  # this object does not exist under the good destination path
+            else:
+                logger.debug("{0} processed already. Skip.".format(filename))
+                continue
+            try:
+                client.head_object(Bucket=bucket, Key=badfile)
+            except ClientError:
+                pass # this object does not exist under the bad destination path
+            else:
+                logger.debug("{0} failed already. Skip.".format(filename))
+                continue
+            logger.debug("{0} not already processed.".format(filename))
+            if latest_object is None:
+                latest_object = object_summary
+                continue
+            if object_summary.last_modified > latest_object.modified
+                latest_object = object_summary
+            # obj = client.get_object(Bucket=bucket, Key=object_summary.key)
 
 for object_summary in my_bucket.objects.filter(Prefix=source + "/"
                                                + directory + "/"):

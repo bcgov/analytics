@@ -17,6 +17,7 @@
 #
 
 import boto3  # s3 access
+from botocore.exceptions import ClientError
 import pandas as pd  # data processing
 import re  # regular expressions
 from io import StringIO
@@ -138,6 +139,7 @@ truncate = data['truncate']
 client = boto3.client('s3')  # low-level functional API
 resource = boto3.resource('s3')  # high-level object-oriented API
 my_bucket = resource.Bucket(bucket)  # subsitute this for your s3 bucket name.
+bucket_name = my_bucket.name
 
 # prep database call to pull the batch file into redshift
 host = 'snowplow-ca-bc-gov-main-redshi-resredshiftcluster-13nmjtt8tcok7.\
@@ -151,30 +153,72 @@ dbname='{dbname}' host='{host}' port='{port}' user='{user}' password={password}
            user='microservice',
            password=os.environ['pgpass'])
 
-# TODO: If truncate is true, pick only the most recent
-# We will search through all objects in the bucket whose keys begin: source/directory/
-for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory + "/"):
+
+def is_processed(object_summary):
+    # Check to see if the file has been processed already
+    key = object_summary.key
+    filename = key[key.rfind('/')+1:]  # get the filename (after the last '/')
+    goodfile = destination + "/good/" + key
+    badfile = destination + "/bad/" + key
+    try:
+        client.head_object(Bucket=bucket, Key=goodfile)
+    except ClientError:
+        pass  # this object does not exist under the good destination path
+    else:
+        logger.debug("{0} was processed as good already.".format(filename))
+        return True
+    try:
+        client.head_object(Bucket=bucket, Key=badfile)
+    except ClientError:
+        pass  # this object does not exist under the bad destination path
+    else:
+        logger.debug("{0} was processed as bad already.".format(filename))
+        return True
+    logger.debug("{0} has not been processed.".format(filename))
+    return False
+
+
+# This bucket scan will find unprocessed objects.
+# objects_to_process will contain zero or one objects if truncate=True;
+# objects_to_process will contain zero or more objects if truncate=False.
+objects_to_process = []
+for object_summary in my_bucket.objects.filter(Prefix=source + "/"
+                                               + directory + "/"):
+    key = object_summary.key
+    # skip to next object if already processed
+    if is_processed(object_summary):
+        continue
+    else:
+        # only review those matching our configued 'doc' regex pattern
+        if re.search(doc + '$', key):
+            # under truncate, we will keep list length to 1
+            # only adding the most recently modified file to objects_to_process
+            if truncate:
+                if len(objects_to_process) == 0:
+                    objects_to_process.append(object_summary)
+                    continue
+                else:
+                    # compare last modified dates of the latest and current obj
+                    if (object_summary.last_modified
+                            > objects_to_process[0].last_modified):
+                        objects_to_process[0] = object_summary
+            else:
+                # no truncate, so the list may exceed 1 element
+                objects_to_process.append(object_summary)
+
+if truncate and len(objects_to_process) == 1:
+    logger.info(
+        'truncate is set. processing only one file: {0} (modified {1})'.format(
+            objects_to_process[0].key, objects_to_process[0].last_modified))
+
+# process the objects that were found during the earlier directory pass
+for object_summary in objects_to_process:
     # Look for objects that match the filename pattern
     if re.search(doc + '$', object_summary.key):
         # Check to see if the file has been processed already
         batchfile = destination + "/batch/" + object_summary.key
         goodfile = destination + "/good/" + object_summary.key
         badfile = destination + "/bad/" + object_summary.key
-        try:
-            client.head_object(Bucket=bucket, Key=goodfile)
-        except Exception as e:
-            True
-        else:
-            logger.debug("{0}:{1} processed already. Skip.".format(my_bucket.name, object_summary.key))
-            continue
-        try:
-            client.head_object(Bucket=bucket, Key=badfile)
-        except Exception as e:
-            True
-        else:
-            logger.debug("{0}:{1} File failed already. Skip.".format(my_bucket.name, object_summary.key))
-            continue
-        logger.info("{0}:{1} File not already processed. Proceed.".format(my_bucket.name, object_summary.key))
 
         # Load the object from S3 using Boto and set body to be its contents
         obj = client.get_object(Bucket=bucket, Key=object_summary.key)
@@ -293,7 +337,7 @@ for object_summary in my_bucket.objects.filter(Prefix=source + "/" + directory +
 
             copy_queries[dbtable] = copy_query_unformatted.format(
                 dbtable=dbtable,
-                my_bucket_name=my_bucket.name,
+                my_bucket_name=bucket_name,
                 batchfile=batchfile,
                 aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
                 aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])

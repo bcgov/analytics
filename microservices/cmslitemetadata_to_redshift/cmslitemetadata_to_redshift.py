@@ -213,178 +213,176 @@ if truncate and len(objects_to_process) == 1:
 
 # process the objects that were found during the earlier directory pass
 for object_summary in objects_to_process:
-    # Look for objects that match the filename pattern
-    if re.search(doc + '$', object_summary.key):
-        # Check to see if the file has been processed already
-        batchfile = destination + "/batch/" + object_summary.key
-        goodfile = destination + "/good/" + object_summary.key
-        badfile = destination + "/bad/" + object_summary.key
+    # Check to see if the file has been processed already
+    batchfile = destination + "/batch/" + object_summary.key
+    goodfile = destination + "/good/" + object_summary.key
+    badfile = destination + "/bad/" + object_summary.key
 
-        # Load the object from S3 using Boto and set body to be its contents
-        obj = client.get_object(Bucket=bucket, Key=object_summary.key)
-        body = obj['Body']
+    # Load the object from S3 using Boto and set body to be its contents
+    obj = client.get_object(Bucket=bucket, Key=object_summary.key)
+    body = obj['Body']
 
-        csv_string = body.read().decode('utf-8')
+    csv_string = body.read().decode('utf-8')
 
-        # XX  temporary fix while we figure out better delimiter handling
-        csv_string = csv_string.replace('	', ' ')
+    # XX  temporary fix while we figure out better delimiter handling
+    csv_string = csv_string.replace('	', ' ')
 
-        # Check for an empty file. If it's empty, accept it as good and move on
-        try:
-            df = pd.read_csv(StringIO(csv_string), sep=delim, index_col=False, dtype=dtype_dic, usecols=range(column_count))
-        except Exception as e:
-            if (str(e) == "No columns to parse from file"):
-                logger.debug("Empty file, proceeding")
-                outfile = goodfile
-            else:
-                logger.error("Parse error: " + str(e))
+    # Check for an empty file. If it's empty, accept it as good and move on
+    try:
+        df = pd.read_csv(StringIO(csv_string), sep=delim, index_col=False, dtype=dtype_dic, usecols=range(column_count))
+    except Exception as e:
+        if (str(e) == "No columns to parse from file"):
+            logger.debug("Empty file, proceeding")
+            outfile = goodfile
+        else:
+            logger.error("Parse error: " + str(e))
+            outfile = badfile
+
+        # For the two exceptions cases, write to either the Good or Bad folder. Otherwise, continue to process the file.
+        client.copy_object(Bucket="sp-ca-bc-gov-131565110619-12-microservices", CopySource="sp-ca-bc-gov-131565110619-12-microservices/"+object_summary.key, Key=outfile)
+        continue
+
+    # set the data frame to use the columns listed in the .conf file. Note that this overrides the columns in the file, and will give an error if the wrong number of columns is present. It will not validate the existing column names.
+    df.columns = columns
+
+    # Run rename to change column names
+    if 'rename' in data:
+        for thisfield in data['rename']:
+            if thisfield['old'] in df.columns:
+                df.rename(columns={thisfield['old']: thisfield['new']}, inplace=True)
+
+    # Run replace on some fields to clean the data up
+    if 'replace' in data:
+        for thisfield in data['replace']:
+            df[thisfield['field']].str.replace(thisfield['old'], thisfield['new'])
+
+    # Clean up date fields, for each field listed in the dateformat array named "field" apply "format"
+    # Leaves null entries as blanks instead of NaT
+    if 'dateformat' in data:
+        for thisfield in data['dateformat']:
+            df[thisfield['field']] = pd.to_datetime(df[thisfield['field']]).apply(lambda x: x.strftime(thisfield['format'])if not pd.isnull(x) else '')
+
+    # We loop over the columns listedin the JSON configuration file.
+    # There are three sets of values that should match to consider:
+    # - columns_lookup
+    # - dbtables_dictionaries
+    # - dbtables_metadata
+
+    # The table is built in the same way as the others, but this allows us
+    # to resuse the code below in the loop to write the batch file and run
+    # the SQL command.
+
+    # TODO
+    # refactor to simplify the later half of the loop into a function.
+
+    dictionary_dfs = {}  # keep the dictionaries in storage
+    # loop starts at index -1 to process the main metadata table.
+
+    # build an aggregate query which will be used to make one transaction
+    copy_queries = {}
+    for i in range(-1, len(columns_lookup)*2):
+        if (i == -1):
+            column = "metadata"
+            dbtable = "metadata"
+            key = None
+            columnlist = columns_metadata
+            df_new = df.copy()
+        elif (i < len(columns_lookup)):
+            key = "key"
+            column = columns_lookup[i]
+            columnlist = [columns_lookup[i]]
+            dbtable = dbtables_dictionaries[i]
+            df_new = to_dict(df, column)  # make dictionary a dataframe of this column
+            dictionary_dfs[columns_lookup[i]] = df_new
+        else:
+            i_off = i - len(columns_lookup)
+            key = None
+            column = columns_lookup[i_off]
+            columnlist = ['node_id', 'lookup_id']
+            dbtable = dbtables_metadata[i_off]
+
+            df_dictionary = dictionary_dfs[column]  # retrieve the dictionary in memory
+
+            # for each row in df
+            df_new = pd.DataFrame(columns=columnlist)
+            for index, row in df.copy().iterrows():
+                if row[column] is not pd.np.nan:
+                    # iterate over the list of delimited terms
+                    entry = row[column]  # get the full string of delimited values to be looked up
+                    try:
+                        entry = entry[1:-1]  # remove wrapping delimeters
+                    except Exception as e:
+                        # log("EXCEPTION RAISED\n---\ncolumn: {0}, row: {1}, index: {2}, entry: \n{3}".format(column, row, index, entry))
+                        continue
+                    if entry:  # skip empties
+                        for lookup_entry in entry.split(nested_delim):  # split on delimiter and iterate on resultant list
+                            node_id = row.node_id  # HARDCODED: the node id from the current row
+                            lookup_id = df_dictionary.loc[df_dictionary[column] == lookup_entry].index[0]  # its dictionary index
+                            d = pd.DataFrame([[node_id, lookup_id]], columns=columnlist)  # create the data frame to concat
+                            df_new = pd.concat([df_new, d], ignore_index=True)
+
+        # output the the dataframe as a csv
+        to_s3(bucket, batchfile, dbtable + '.csv', df_new, columnlist, key)
+
+        copy_query_unformatted = "".join((
+            "COPY {dbtable} FROM ",
+            "'s3://{my_bucket_name}/{batchfile}/{dbtable}.csv' ",
+            "CREDENTIALS 'aws_access_key_id={aws_access_key_id};",
+            "aws_secret_access_key={aws_secret_access_key}' ",
+            "IGNOREHEADER AS 1 MAXERROR AS 0 ",
+            "DELIMITER '	' NULL AS '-' ESCAPE;")
+            )
+
+        copy_queries[dbtable] = copy_query_unformatted.format(
+            dbtable=dbtable,
+            my_bucket_name=bucket_name,
+            batchfile=batchfile,
+            aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+            aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
+
+    # TODO: prepare the aggregate query
+    # prep the single-transaction this_query
+    query = 'BEGIN; SET search_path TO {dbschema};'.format(
+        dbschema=dbschema)
+    for table, copy_query in copy_queries.items():
+        query = query.join((
+            'DROP TABLE IF EXISTS {table}_scratch;',
+            'DROP TABLE IF EXISTS {table}_old;',
+            'CREATE TABLE {table}_scratch (LIKE {table});',
+            'ALTER TABLE {table}_scratch OWNER TO microservice;',
+            'GRANT SELECT ON {table}_scratch TO looker;')).format(
+                table=table)
+        query = query + copy_query
+        query = query.join((
+            'ALTER TABLE {table} RENAME TO {table}_old;',
+            'ALTER TABLE {table}_scratch RENAME TO {table};',
+            'DROP TABLE {table}_old;')).format(
+                table=table)
+    query = query + 'COMMIT;'
+    logquery = (
+        query.replace
+        (os.environ['AWS_ACCESS_KEY_ID'], 'AWS_ACCESS_KEY_ID').replace
+        (os.environ['AWS_SECRET_ACCESS_KEY'], 'AWS_SECRET_ACCESS_KEY'))
+
+    logger.debug(logquery)
+    with psycopg2.connect(conn_string) as conn:
+        with conn.cursor() as curs:
+            try:
+                curs.execute(query)
+            except psycopg2.Error as e:
+                logger.exception("Executing transaction for {0} failed."
+                                 .format(object_summary.key))
                 outfile = badfile
+            else:  # if the DB call succeed, place file in /good
+                logger.info("Executing transaction {0} succeeded."
+                            .format(object_summary.key))
+                outfile = goodfile
 
-            # For the two exceptions cases, write to either the Good or Bad folder. Otherwise, continue to process the file.
-            client.copy_object(Bucket="sp-ca-bc-gov-131565110619-12-microservices", CopySource="sp-ca-bc-gov-131565110619-12-microservices/"+object_summary.key, Key=outfile)
-            continue
-
-        # set the data frame to use the columns listed in the .conf file. Note that this overrides the columns in the file, and will give an error if the wrong number of columns is present. It will not validate the existing column names.
-        df.columns = columns
-
-        # Run rename to change column names
-        if 'rename' in data:
-            for thisfield in data['rename']:
-                if thisfield['old'] in df.columns:
-                    df.rename(columns={thisfield['old']: thisfield['new']}, inplace=True)
-
-        # Run replace on some fields to clean the data up
-        if 'replace' in data:
-            for thisfield in data['replace']:
-                df[thisfield['field']].str.replace(thisfield['old'], thisfield['new'])
-
-        # Clean up date fields, for each field listed in the dateformat array named "field" apply "format"
-        # Leaves null entries as blanks instead of NaT
-        if 'dateformat' in data:
-            for thisfield in data['dateformat']:
-                df[thisfield['field']] = pd.to_datetime(df[thisfield['field']]).apply(lambda x: x.strftime(thisfield['format'])if not pd.isnull(x) else '')
-
-        # We loop over the columns listedin the JSON configuration file.
-        # There are three sets of values that should match to consider:
-        # - columns_lookup
-        # - dbtables_dictionaries
-        # - dbtables_metadata
-
-        # The table is built in the same way as the others, but this allows us
-        # to resuse the code below in the loop to write the batch file and run
-        # the SQL command.
-
-        # TODO
-        # refactor to simplify the later half of the loop into a function.
-
-        dictionary_dfs = {}  # keep the dictionaries in storage
-        # loop starts at index -1 to process the main metadata table.
-
-        # build an aggregate query which will be used to make one transaction
-        copy_queries = {}
-        for i in range(-1, len(columns_lookup)*2):
-            if (i == -1):
-                column = "metadata"
-                dbtable = "metadata"
-                key = None
-                columnlist = columns_metadata
-                df_new = df.copy()
-            elif (i < len(columns_lookup)):
-                key = "key"
-                column = columns_lookup[i]
-                columnlist = [columns_lookup[i]]
-                dbtable = dbtables_dictionaries[i]
-                df_new = to_dict(df, column)  # make dictionary a dataframe of this column
-                dictionary_dfs[columns_lookup[i]] = df_new
-            else:
-                i_off = i - len(columns_lookup)
-                key = None
-                column = columns_lookup[i_off]
-                columnlist = ['node_id', 'lookup_id']
-                dbtable = dbtables_metadata[i_off]
-
-                df_dictionary = dictionary_dfs[column]  # retrieve the dictionary in memory
-
-                # for each row in df
-                df_new = pd.DataFrame(columns=columnlist)
-                for index, row in df.copy().iterrows():
-                    if row[column] is not pd.np.nan:
-                        # iterate over the list of delimited terms
-                        entry = row[column]  # get the full string of delimited values to be looked up
-                        try:
-                            entry = entry[1:-1]  # remove wrapping delimeters
-                        except Exception as e:
-                            # log("EXCEPTION RAISED\n---\ncolumn: {0}, row: {1}, index: {2}, entry: \n{3}".format(column, row, index, entry))
-                            continue
-                        if entry:  # skip empties
-                            for lookup_entry in entry.split(nested_delim):  # split on delimiter and iterate on resultant list
-                                node_id = row.node_id  # HARDCODED: the node id from the current row
-                                lookup_id = df_dictionary.loc[df_dictionary[column] == lookup_entry].index[0]  # its dictionary index
-                                d = pd.DataFrame([[node_id, lookup_id]], columns=columnlist)  # create the data frame to concat
-                                df_new = pd.concat([df_new, d], ignore_index=True)
-
-            # output the the dataframe as a csv
-            to_s3(bucket, batchfile, dbtable + '.csv', df_new, columnlist, key)
-
-            copy_query_unformatted = "".join((
-                "COPY {dbtable} FROM ",
-                "'s3://{my_bucket_name}/{batchfile}/{dbtable}.csv' ",
-                "CREDENTIALS 'aws_access_key_id={aws_access_key_id};",
-                "aws_secret_access_key={aws_secret_access_key}' ",
-                "IGNOREHEADER AS 1 MAXERROR AS 0 ",
-                "DELIMITER '	' NULL AS '-' ESCAPE;")
-                )
-
-            copy_queries[dbtable] = copy_query_unformatted.format(
-                dbtable=dbtable,
-                my_bucket_name=bucket_name,
-                batchfile=batchfile,
-                aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'])
-
-        # TODO: prepare the aggregate query
-        # prep the single-transaction this_query
-        query = 'BEGIN; SET search_path TO {dbschema};'.format(
-            dbschema=dbschema)
-        for table, copy_query in copy_queries.items():
-            query = query.join((
-                'DROP TABLE IF EXISTS {table}_scratch;',
-                'DROP TABLE IF EXISTS {table}_old;',
-                'CREATE TABLE {table}_scratch (LIKE {table});',
-                'ALTER TABLE {table}_scratch OWNER TO microservice;',
-                'GRANT SELECT ON {table}_scratch TO looker;')).format(
-                    table=table)
-            query = query + copy_query
-            query = query.join((
-                'ALTER TABLE {table} RENAME TO {table}_old;',
-                'ALTER TABLE {table}_scratch RENAME TO {table};',
-                'DROP TABLE {table}_old;')).format(
-                    table=table)
-        query = query + 'COMMIT;'
-        logquery = (
-            query.replace
-            (os.environ['AWS_ACCESS_KEY_ID'], 'AWS_ACCESS_KEY_ID').replace
-            (os.environ['AWS_SECRET_ACCESS_KEY'], 'AWS_SECRET_ACCESS_KEY'))
-
-        logger.debug(logquery)
-        with psycopg2.connect(conn_string) as conn:
-            with conn.cursor() as curs:
-                try:
-                    curs.execute(query)
-                except psycopg2.Error as e:
-                    logger.exception("Executing transaction for {0} failed."
-                                     .format(object_summary.key))
-                    outfile = badfile
-                else:  # if the DB call succeed, place file in /good
-                    logger.info("Executing transaction {0} succeeded."
-                                .format(object_summary.key))
-                    outfile = goodfile
-
-        # Copies the uploaded file from client into processed/good or /bad
-        client.copy_object(
-            Bucket="sp-ca-bc-gov-131565110619-12-microservices",
-            CopySource="sp-ca-bc-gov-131565110619-12-microservices/{0}".format(
-                object_summary.key), Key=outfile)
+    # Copies the uploaded file from client into processed/good or /bad
+    client.copy_object(
+        Bucket="sp-ca-bc-gov-131565110619-12-microservices",
+        CopySource="sp-ca-bc-gov-131565110619-12-microservices/{0}".format(
+            object_summary.key), Key=outfile)
 
 # now we run the single-time load on the cmslite.themes
 query = """

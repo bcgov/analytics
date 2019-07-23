@@ -1,0 +1,14 @@
+{
+  "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
+  "source": "client",
+  "destination": "processed",
+  "directory": "cfms_sbc",
+  "doc": "inaccurate_time_clientids.*.csv",
+  "dbtable": "servicebc.inaccurate_time_clientids",
+  "column_count": 1,
+  "columns": [
+	"client_id"
+  ],
+  "delim": "," ,
+  "truncate": true
+}

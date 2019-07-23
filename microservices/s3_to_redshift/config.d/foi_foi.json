@@ -1,0 +1,47 @@
+{
+  "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
+  "source": "client",
+  "destination": "processed",
+  "directory": "foi_foi",
+  "doc": ".csv",
+  "dbtable": "static.foi",
+  "column_count": 17,
+  "columns": [
+    "Ministry",
+    "Type",
+    "Request #",
+    "Applicant",
+    "Start Date",
+    "Due Date",
+    "End Date",
+    "Status",
+    "Disposition",
+    "On Hold Days",
+    "Processing Days Days",
+    "Overdue Days",
+    "Extension",
+    "Fees Paid",
+    "Publication",
+    "Reason",
+    "Description"
+  ],
+  "dtype_dic_strings": [
+    "Processing Days Days",
+    "On Hold Days",
+    "Overdue Days"
+  ],
+  "delim": "|",
+  "truncate": true,
+  "dateformat": [ 
+    { "field": "Start Date", "format": "%d-%b-%y"},
+    { "field": "Due Date", "format": "%d-%b-%y"},
+    { "field": "End Date", "format": "%d-%b-%y"}
+  ],
+  "replace": [
+    {
+      "field": "Extension",
+      "old": "Y",
+      "new": "TRUE"
+    }
+  ]
+}

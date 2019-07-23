@@ -1,0 +1,19 @@
+{
+  "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
+  "source": "client",
+  "destination": "processed",
+  "directory": "cfms_sbc",
+  "doc": "ServicesCodesWithKeys-.*.csv",
+  "dbtable": "servicebc.service_info",
+  "column_count": 6,
+  "columns": [
+	"OldKey",
+	"SvcCode",
+	"Service",
+	"OldPgmKey",
+	"PgmCode",
+	"Program"
+  ],
+  "delim": "," ,
+  "truncate": true
+}

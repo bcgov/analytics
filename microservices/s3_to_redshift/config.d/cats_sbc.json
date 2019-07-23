@@ -1,0 +1,51 @@
+{
+  "bucket": "sp-ca-bc-gov-131565110619-12-microservices",
+  "source": "client",
+  "destination": "processed",
+  "directory": "cats_sbc",
+  "doc": ".csv",
+  "dbtable": "servicebc.cats_sbc",
+  "column_count": 13,
+  "columns": [
+    "End Time",
+    "Name",
+    "Source Address",
+    "Source Translated Address",
+    "Source Port",
+    "Source Translated Port",
+    "Destination Address",
+    "Destination Port",
+    "Destination Host Name",
+    "Destination Geo Country Code",
+    "Edge FW Name",
+    "Office",
+    "Client"
+  ],
+  "drop_columns": [
+    "Destination Host Name",
+    "Destination Geo Country Code"
+  ],
+  "dtype_dic_strings": [
+    "Source Translated Port"
+  ],
+  "delim": ",",
+  "truncate": false,
+  "dateformat": [
+    {
+      "field": "End Time",
+      "format": "%b %d, %Y %I:%M:%S %p"
+    }
+  ],
+  "replace": [
+    {
+      "field": "End Time",
+      "old": " (\\d):",
+      "new": " 0\\1:"
+    },
+    {
+      "field": "End Time",
+      "old": " (\\d),",
+      "new": " 0\\1,"
+    }
+  ]
+}

@@ -355,7 +355,7 @@ for object_summary in objects_to_process:
                 'GRANT SELECT ON {table}_scratch TO looker;')).format(
                     table=table)
             query = query + copy_query
-            query = ''.join((
+            query = query.join((
                 'ALTER TABLE {table} RENAME TO {table}_old;',
                 'ALTER TABLE {table}_scratch RENAME TO {table};',
                 'DROP TABLE {table}_old;')).format(

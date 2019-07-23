@@ -179,6 +179,7 @@ service = build(
 # Check for a last loaded date in Redshift
 # Load the Redshift connection
 def last_loaded(dbtable, location_id):
+    last_loaded_date = None
     con = psycopg2.connect(conn_string)
     cursor = con.cursor()
     # query the latest date for any search data on this site loaded to redshift
@@ -187,7 +188,7 @@ def last_loaded(dbtable, location_id):
              "WHERE location_id = '{1}'").format(dbtable, location_id)
     cursor.execute(query)
     # get the last loaded date
-    last_loaded_date = (cursor.fetchall())[0][0]
+    last_loaded_date = (cursor.fetchone())[0]
     # close the redshift connection
     cursor.close()
     con.commit()
@@ -260,7 +261,7 @@ for account in validated_accounts:
 
         # query RedShift to see if there is a date already loaded
         last_loaded_date = last_loaded(config_dbtable, loc['name'])
-        if last_loaded_date is not None:
+        if last_loaded_date is None:
             logger.info("first time loading {}".format(account['name']))
 
         # If it is loaded with some data for this ID, use that date plus

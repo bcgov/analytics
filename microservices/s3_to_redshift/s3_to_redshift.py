@@ -288,7 +288,9 @@ DROP TABLE IF EXISTS {0}_old;
 -- Create scratch table to copy new data into
 CREATE TABLE {0}_scratch (LIKE {0});
 ALTER TABLE {0}_scratch OWNER TO microservice;
+-- Grant access to Looker and to Snowplow pipeline users
 GRANT SELECT ON {0}_scratch TO looker;\n
+GRANT SELECT ON {0}_scratch TO datamodeling;\n
 """.format(dbtable)
         scratch_copy = copy_query(
             dbtable + "_scratch", batchfile, log=False)

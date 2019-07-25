@@ -69,7 +69,7 @@ A gateway service to handle event analytics for BC Government projects on the Op
 
 A Drupal 8 module that runs the GDX-Analytics Snowplow web trackers.
 
-#### [GDX-Analytics-Looker-Google-Block](https://github.com/bcgov/GDX-Analytics-Looker-Google-Block)
+#### [GDX-Analytics-Looker-Google-Block/](https://github.com/bcgov/GDX-Analytics-Looker-Google-Block)
 
 This is for the Government of British Columbia’s instance their Google API LookML project. LookML is a language for describing dimensions, aggregates, calculations and data relationships in a SQL database
 

@@ -248,6 +248,11 @@ for object_summary in objects_to_process:
 
     df.columns = columns
 
+    # Truncate strings according to config set column string length limits
+    if 'column_string_limit' in data:
+        for key, value in data['column_string_limit'].items():
+            df[key] = df[key].str.slice(0, value)
+
     if 'drop_columns' in data:  # Drop any columns marked for dropping
         df = df.drop(columns=drop_columns)
 

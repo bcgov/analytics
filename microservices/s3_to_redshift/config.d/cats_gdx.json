@@ -18,6 +18,13 @@
     "port",
     "proxy"
   ],
+  "column_string_limit": {
+    "refer": 4095,
+    "get_string": 4095,
+    "group": 255,
+    "user": 255,
+    "ip": 255
+  },
   "dtype_dic_strings": [
     "size"
   ],
